@@ -77,12 +77,13 @@ static const NSInteger LEMSwitchCellType = 6;
                        forKey:@"footerText"];
 
         PSSpecifier *badges = [PSSpecifier groupSpecifierWithName:@"角标"];
-        [badges setProperty:@"打开时忽略 App 重新上报的旧角标；关闭后旧数字可能再次出现。"
+        [badges setProperty:@"App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，"
+                             @"新数字照常显示；关闭后旧数字可能再次出现。"
                     forKey:@"footerText"];
 
         _specifiers = [@[
             gestures, [self switchNamed:@"启用" key:LEMPreferencesEnabledKey], badges,
-            [self switchNamed:@"保持清空" key:LEMPreferencesKeepClearedKey]
+            [self switchNamed:@"角标维持" key:LEMPreferencesKeepClearedKey]
         ] mutableCopy];
     }
     return _specifiers;
