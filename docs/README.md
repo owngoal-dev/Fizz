@@ -6,7 +6,7 @@
 
 - `LEMON_HOME_GESTURE.md`：主屏双指手势的接入方式、与 `SBIconScrollView` 内置 pan 的冲突处理、图标涟漪参数与 hooks。
 - `LEMON_BADGE_CLEAR.md`：徽章清除的逆向结论、四层实现、抑制表与待验证项。
-- `LEMON_SETTINGS.md`：设置面板的入口、两个开关的键与即时生效方式。
+- `LEMON_SETTINGS.md`：设置面板的入口、三个开关的键与即时生效方式。
 - `archive/2026-10-24/reverse-engineering/`：旧徽章 inspector 快照，只用于追溯，不参与编译。
 
 ## 更新规则

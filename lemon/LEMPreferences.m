@@ -12,6 +12,7 @@
 NSString *const LEMPreferencesDomain = @"com.lemon.ripple";
 NSString *const LEMPreferencesEnabledKey = @"Enabled";
 NSString *const LEMPreferencesKeepClearedKey = @"KeepCleared";
+NSString *const LEMPreferencesHapticsKey = @"Haptics";
 
 BOOL LEMPreferencesGetBool(NSString *key, BOOL fallback) {
     if (key.length == 0) {
@@ -31,4 +32,8 @@ BOOL LEMFeatureEnabled(void) {
 
 BOOL LEMBadgeSuppressionEnabled(void) {
     return LEMFeatureEnabled() && LEMPreferencesGetBool(LEMPreferencesKeepClearedKey, YES);
+}
+
+BOOL LEMHapticsEnabled(void) {
+    return LEMFeatureEnabled() && LEMPreferencesGetBool(LEMPreferencesHapticsKey, YES);
 }

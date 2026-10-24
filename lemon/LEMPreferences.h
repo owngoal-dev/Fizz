@@ -20,6 +20,9 @@ extern NSString *const LEMPreferencesEnabledKey;
 /// Keep-cleared switch, defaulting to YES.
 extern NSString *const LEMPreferencesKeepClearedKey;
 
+/// Haptic feedback switch, defaulting to YES.
+extern NSString *const LEMPreferencesHapticsKey;
+
 /// Reads one boolean, falling back to `fallback` when it was never written.
 BOOL LEMPreferencesGetBool(NSString *key, BOOL fallback);
 
@@ -29,5 +32,9 @@ BOOL LEMFeatureEnabled(void);
 /// YES when both the global switch and the keep-cleared switch are on. Only this
 /// layer drops the counts an application republishes after a clear.
 BOOL LEMBadgeSuppressionEnabled(void);
+
+/// YES when both the global switch and the haptics switch are on. The haptic
+/// pattern follows the gesture, so it is off whenever the gesture is.
+BOOL LEMHapticsEnabled(void);
 
 NS_ASSUME_NONNULL_END

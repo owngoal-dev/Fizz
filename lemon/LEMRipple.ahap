@@ -1,0 +1,93 @@
+{
+  "Version": 1.0,
+  "Metadata": {
+    "Project": "Lemon",
+    "Description": "A two-finger spread on the home screen. A soft catch, a low swell that thins out as it travels, three rings that lose weight and gain sharpness towards the edges, and a last crisp tick when the ripple settles and the badges are gone. The timeline follows the ripple: 0.5 s of motion, up to 0.1 s of per-icon delay, and a 0.62 s tail for the settle."
+  },
+  "Pattern": [
+    {
+      "Event": {
+        "Time": 0.0,
+        "EventType": "HapticTransient",
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.55 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.30 }
+        ]
+      }
+    },
+    {
+      "Event": {
+        "Time": 0.0,
+        "EventType": "HapticContinuous",
+        "EventDuration": 0.62,
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.50 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.25 }
+        ]
+      }
+    },
+    {
+      "ParameterCurve": {
+        "ParameterID": "HapticIntensityControl",
+        "Time": 0.0,
+        "ParameterCurveControlPoints": [
+          { "Time": 0.000, "ParameterValue": 0.10 },
+          { "Time": 0.060, "ParameterValue": 0.85 },
+          { "Time": 0.300, "ParameterValue": 0.50 },
+          { "Time": 0.620, "ParameterValue": 0.00 }
+        ]
+      }
+    },
+    {
+      "ParameterCurve": {
+        "ParameterID": "HapticSharpnessControl",
+        "Time": 0.0,
+        "ParameterCurveControlPoints": [
+          { "Time": 0.000, "ParameterValue": -0.20 },
+          { "Time": 0.320, "ParameterValue": 0.10 },
+          { "Time": 0.620, "ParameterValue": 0.50 }
+        ]
+      }
+    },
+    {
+      "Event": {
+        "Time": 0.14,
+        "EventType": "HapticTransient",
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.40 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.38 }
+        ]
+      }
+    },
+    {
+      "Event": {
+        "Time": 0.30,
+        "EventType": "HapticTransient",
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.30 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.47 }
+        ]
+      }
+    },
+    {
+      "Event": {
+        "Time": 0.47,
+        "EventType": "HapticTransient",
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.20 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.57 }
+        ]
+      }
+    },
+    {
+      "Event": {
+        "Time": 0.60,
+        "EventType": "HapticTransient",
+        "EventParameters": [
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.22 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.80 }
+        ]
+      }
+    }
+  ]
+}

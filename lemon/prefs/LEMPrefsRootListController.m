@@ -2,9 +2,10 @@
 //  LEMPrefsRootListController.m
 //  Lemon
 //
-//  The Settings pane of Lemon. It holds two switches and nothing else: the
-//  global switch, and the switch that decides whether a cleared badge stays
-//  cleared when its application publishes the old count again.
+//  The Settings pane of Lemon. It holds three switches and nothing else: the
+//  global switch, the haptics switch, and the switch that decides whether a
+//  cleared badge stays cleared when its application publishes the old count
+//  again.
 //
 //  Preferences.framework is private and the SDK ships no headers for it, so the
 //  two classes the pane builds on are declared here; the bundle leaves
@@ -73,7 +74,8 @@ static const NSInteger LEMSwitchCellType = 6;
 - (NSArray *)specifiers {
     if (!_specifiers) {
         PSSpecifier *gestures = [PSSpecifier groupSpecifierWithName:@"手势"];
-        [gestures setProperty:@"主屏幕双指外扩：图标向外扩散，同时清除所有角标。关闭后手势不再响应。"
+        [gestures setProperty:@"主屏幕双指外扩：图标向外扩散，同时清除所有角标，并按涟漪节奏播放自定义触感。"
+                             @"关闭后手势不再响应。"
                        forKey:@"footerText"];
 
         PSSpecifier *badges = [PSSpecifier groupSpecifierWithName:@"角标"];
@@ -82,7 +84,8 @@ static const NSInteger LEMSwitchCellType = 6;
                     forKey:@"footerText"];
 
         _specifiers = [@[
-            gestures, [self switchNamed:@"启用" key:LEMPreferencesEnabledKey], badges,
+            gestures, [self switchNamed:@"启用" key:LEMPreferencesEnabledKey],
+            [self switchNamed:@"触感反馈" key:LEMPreferencesHapticsKey], badges,
             [self switchNamed:@"角标维持" key:LEMPreferencesKeepClearedKey]
         ] mutableCopy];
     }
