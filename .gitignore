@@ -1,0 +1,17 @@
+# Local reference snapshots and chat attachments
+references/
+Attachments/
+
+# Build output and caches
+.cache/
+.theos/
+packages/
+logs/
+crashes/
+build/
+DerivedData/
+__pycache__/
+*.dSYM
+.DS_Store
+._*
+*.icloud

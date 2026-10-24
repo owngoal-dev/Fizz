@@ -1,0 +1,40 @@
+# Lemon 主屏手势与图标涟漪
+
+本文件记录 `lemon/LEMHomeGesture.m` 的手势接入方式、双指外扩与主屏 `SBIconScrollView` 内置 pan 的冲突处理，以及 `lemon/LEMIconRipple.m` 的涟漪参数。
+
+## 冲突来源
+
+主屏 `SBIconScrollView` 的 `panGestureRecognizer` 默认 `minimumNumberOfTouches=1`、`maximumNumberOfTouches=NSUIntegerMax`，双指拖动同样算一次 pan；iOS 17 主屏没有系统 pinch recognizer（`pinchGestureRecognizer=nil`），所以 Lemon 的 pinch 完全是自己装的。
+
+两者并行时，双指外扩会把页面一起拖走；手指先后落下时还会出现“先单指拖动、再加第二指”的路径，这时 pan 已经在跑。
+
+## 处理方式
+
+- `LEMConfigureScrollPan` 把主屏 pan 的 `maximumNumberOfTouches` 限制为 1，双指接触不再触发 pan；configure 在 attach 时执行，并由 `SBIconScrollView` 的 `layoutSubviews` 钩子持续守住（只在值被改回时才重新设置）。
+- `LEMSuppressScrollPan` 在 pinch 进入 `Began` 时把 pan 置为 `NO`，用于取消“第二指落下前已经开始”的 pan 与惯性减速；`LEMRestoreScrollPan` 在 pinch `Ended`/`Cancelled` 时恢复，另有 3 秒看门狗防止 pan 被永久禁用。
+- 单指拖动不受影响：pinch 结束即恢复 pan，普通翻页仍由原 pan 处理。
+- pinch recognizer 在 `Began` 时读一次全局开关；关闭开关不会移除 recognizer，下一次手势就能重新生效，不需要 respring。
+
+## 图标涟漪
+
+`LEMIconRippleRun` 由 pinch `Began` 且 `scale > 1.0` 时调用，内收手势不改数据也不做动画。
+
+- 锚点是 `SBIconScrollView` 所在 window 的中心；图标按“图标中心减锚点”的向量方向外移，位移量与距离成正比，最远图标移动 26pt。
+- 每个图标用两条 `CAKeyframeAnimation`（`transform.translation.x` / `.y`）走 0 → 偏移 → 0，关键时间点 0 / 0.42 / 1，`EaseInEaseOut`，总时长 0.5s；延迟按距离归一化后最多 0.1s，整体约 0.6s，视觉上从中间向外扩散。
+- 动画只作用于 layer，不改 `transform` 模型值，结束后自动回到原位；`transform` 非单位矩阵（例如正在被拖动）、隐藏、透明或不在窗口内的图标会被跳过。
+- 递归收集时遇到类名含 `IconView` 的视图就停下，只让最外层的图标视图动，避免图标图片视图（`SBIconImageView`）被父子各推一次。
+- 只处理 `SBIconScrollView` 内的页面图标，Dock 等其他部件的图标不参与。
+
+## 接入与 hooks
+
+- `SBIconScrollView` 的 `initWithFrame:` 钩子、`SBHIconManager` 的 `rootFolderControllerViewWillAppear:` 钩子负责发现并 attach scroll view；启动 2 秒后再全窗口扫一次，覆盖钩子装上之前就已经建好的主屏。
+- `${PREFIX}` 里没有 Theos，钩子统一走 `lemon/LEMHook.m`：`MSHookMessageEx` 由 `dlsym` 解析，拿不到时退回 `method_setImplementation`；目标类没实现某个 selector 时，`LEMInstallHook` 沿继承链找到真正实现的类再挂。
+- `layoutSubviews` 只在 `SBIconScrollView` 自己实现它时才挂，避免把 `UIScrollView` 基类的实现挂给全系统。三个钩子共 7 位，每位只装一次，缺类时每 0.1 秒重试，最多 50 次。
+
+## 日志
+
+生产构建只在加载时写一行 `ApelinLoaded <buildID>`，供 `confirm_loaded` 使用；手势、pan、attach 和涟漪都不写日志，因此不存在 `gesture.log`。需要重新排查时再加临时日志，不要长期保留。旧探针的 inspector 快照在 `docs/archive/2026-10-24/reverse-engineering/` 留档，不参与编译。
+
+## 验证要点
+
+手工观察：双指外扩时图标向外扩散、页面不位移；内收不触发；设置里关掉“启用”后手势与角标清除都不响应，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
