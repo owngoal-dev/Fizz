@@ -20,7 +20,7 @@
 
 1. 数据层：从 `SBIconController.sharedInstance` 取到 `iconManager.iconModel.leafIcons`，对每个 `badgeNumberOrString` 非空的图标先 `[application setBadgeValue:nil]`，再 `[icon setBadge:nil]`、`[icon noteBadgeDidChange]`。只清 icon 不清 application 不持久，徽章会立刻回来。
 2. 持久层：清一个图标前，把它的 `bundleIdentifier` 和当时的值记进 `badge-suppression.plist`。之后 `-setBadgeValue:`、`-setBadge:`、`-remoteBadgeValueDidChange` 上收到的写入如果与记录完全相同，就直接丢弃；值不同则视为真实变化，放行并删除记录。App 重推旧值因此被吞掉，而新消息、已读归零都照常生效。这一层由设置里的“角标维持”开关控制（键 `KeepCleared`，默认打开）：关闭时手势仍然清空并按节拍淡出徽章，但不再记录基线，也不再拦截任何写入。
-3. 视图层：徽章淡出跟随涟漪节拍。`LEMIconRippleRun` 每动画一个图标就调用 `LEMBadgeFadeWithRipple(icon, duration, delay, outKeyTime)`，用同一个 0.5 秒时长、同一个按距离算出的 delay、同一条 `kCAMediaTimingFunctionEaseInEaseOut` 曲线，关键帧形状也一致（`opacity` 从当前值到 0 落在 `outKeyTime` = 0.42，之后保持 0）。
+3. 视图层：徽章淡出跟随涟漪节拍，并跑满整段动画。`LEMIconRippleRun` 每动画一个图标就调用 `LEMBadgeFadeWithRipple(icon, duration, delay, outKeyTime)`，用同一个 0.5 秒时长、同一个按距离算出的 delay、同一条 `kCAMediaTimingFunctionEaseInEaseOut` 曲线（`opacity` 从当前值到 0 落在 `outKeyTime` = 1.0，之后保持 0）。淡出不在图标最远点结束，而是一路淡到图标回位，最远的图标（延迟 0.1 秒）在 0.60 才完全消失，与 0.62 的清空落定和清空版触感的“咯噔”对齐。
 4. 复用层：hook `-prepareForReuse`、`-configureForIcon:infoProvider:`、`-configureAnimatedForIcon:infoProvider:animator:`，先清掉淡出动画、恢复 `hidden = NO`、`alpha = 1.0`，再调用原实现。被复用的徽章视图不会带着上一轮的隐藏状态。
 
 数据清除必须晚于淡出：`setBadgeValue:nil` 会立刻让 SpringBoard 拆掉或重配徽章视图，同一个 runloop 里清数据等于动画根本看不到。所以 `LEMBadgeClearAll()` 只在涟漪整波结束后才跑（`settle = 0.5 + 0.1`，再留 0.02 秒余量），此时它只做三件事：清数据、移除已淡出视图上的动画、把仍然活着的淡出视图 `hidden = YES`（防止数据没清掉时徽章回弹）。

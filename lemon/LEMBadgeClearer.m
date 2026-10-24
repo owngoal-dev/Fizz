@@ -300,12 +300,12 @@ static NSUInteger LEMBadgeFadeTree(UIView *view, Class badgeClass, NSTimeInterva
     }
     NSUInteger faded = 0;
     if ([view isKindOfClass:badgeClass] && view.window && !view.hidden) {
-        // Same shape as the icon's own keyframe animation: the badge is gone by
-        // the time the icon reaches its farthest point, and stays gone while the
-        // icon springs back.
+        // Same duration, delay and curve as the icon's own keyframe animation,
+        // but the fade runs the whole beat: the badge is still faintly there
+        // while the icon springs back, and reaches zero as the icon rests.
         CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
-        fade.values = @[ @(view.layer.opacity), @0.0, @0.0 ];
-        fade.keyTimes = @[ @0.0, @(outKeyTime), @1.0 ];
+        fade.values = @[ @(view.layer.opacity), @0.0 ];
+        fade.keyTimes = @[ @0.0, @(outKeyTime) ];
         fade.duration = duration;
         fade.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
         fade.beginTime = beginTime;

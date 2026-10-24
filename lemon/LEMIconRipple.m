@@ -24,6 +24,9 @@ static const CGFloat LEMRippleMaximumOffset = 26.0;
 static const NSTimeInterval LEMRippleDuration = 0.5;
 static const NSTimeInterval LEMRippleMaximumDelay = 0.1;
 static const CGFloat LEMRippleOutKeyTime = 0.42;
+// The badge fades over the whole beat instead of vanishing at the farthest
+// point, so the last one is gone exactly when the wave settles.
+static const CGFloat LEMRippleBadgeOutKeyTime = 1.0;
 static const NSUInteger LEMRippleMaximumDepth = 8;
 
 typedef struct {
@@ -129,9 +132,9 @@ NSTimeInterval LEMIconRippleRun(UIView *hostView) {
                                     LEMRippleDuration, delay);
             LEMRippleAddTranslation(icon.layer, @"transform.translation.y", offsetY,
                                     LEMRippleDuration, delay);
-            // The badge of the icon rides the same beat, so it is gone at the
-            // moment the icon is farthest out.
-            LEMBadgeFadeWithRipple(icon, LEMRippleDuration, delay, LEMRippleOutKeyTime);
+            // The badge of the icon rides the same beat and fades until the
+            // icon comes to rest, so the last badge is gone as the wave settles.
+            LEMBadgeFadeWithRipple(icon, LEMRippleDuration, delay, LEMRippleBadgeOutKeyTime);
             animated++;
         }
     }

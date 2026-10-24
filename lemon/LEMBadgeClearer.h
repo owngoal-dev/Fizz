@@ -11,8 +11,8 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Fades the badges of one icon in step with its ripple beat: the same duration,
-/// the same delay the icon itself got, the same ease-in-ease-out curve, and fully
-/// faded by `outKeyTime`. Called by the ripple for every icon it animates.
+/// the same delay the icon itself got, and fully faded by `outKeyTime`. Called by
+/// the ripple for every icon it animates.
 void LEMBadgeFadeWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay,
                             CGFloat outKeyTime);
 
