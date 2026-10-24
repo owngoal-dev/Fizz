@@ -107,7 +107,9 @@ PREFS_ENTRY_DIR="$STAGE_DIR$PREFIX/Library/PreferenceLoader/Preferences"
 mkdir -p "$LIB_DIR" "$STAGE_DIR/DEBIAN" "$PREFS_BUNDLE_DIR" "$PREFS_ENTRY_DIR"
 cp "$OBJ_DIR/$TWEAK_NAME.dylib" "$LIB_DIR/$TWEAK_NAME.dylib"
 cp "$SRC_DIR/$TWEAK_NAME.plist" "$LIB_DIR/$TWEAK_NAME.plist"
-cp "$SRC_DIR/$TWEAK_NAME.ahap" "$LIB_DIR/$TWEAK_NAME.ahap"
+for PATTERN in "$TWEAK_NAME.ahap" "${TWEAK_NAME}Cleared.ahap"; do
+    cp "$SRC_DIR/$PATTERN" "$LIB_DIR/$PATTERN"
+done
 cp "$OBJ_DIR/$PREFS_NAME" "$PREFS_BUNDLE_DIR/$PREFS_NAME"
 cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
 cp "$PREF_SRC_DIR/Lemon.plist" "$PREFS_ENTRY_DIR/Lemon.plist"

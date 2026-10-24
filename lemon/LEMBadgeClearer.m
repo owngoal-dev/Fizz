@@ -386,6 +386,23 @@ static NSString *LEMBadgeBundleIdentifier(SBIcon *icon) {
     return [application respondsToSelector:@selector(bundleIdentifier)] ? application.bundleIdentifier : nil;
 }
 
+BOOL LEMBadgeHasBadges(void) {
+    SBIconModel *iconModel = LEMBadgeIconModel();
+    NSArray *leafIcons = [iconModel respondsToSelector:@selector(leafIcons)] ? iconModel.leafIcons : nil;
+    for (SBIcon *icon in leafIcons) {
+        if (![icon respondsToSelector:@selector(badgeNumberOrString)]) {
+            continue;
+        }
+        id badge = icon.badgeNumberOrString;
+        // A zero is what SpringBoard stores for "no badge"; only a positive
+        // count would be wiped by the clear.
+        if (badge && LEMBadgeIntegerValue(badge) > 0) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 void LEMBadgeClearAll(void) {
     if (!LEMFeatureEnabled()) {
         return;

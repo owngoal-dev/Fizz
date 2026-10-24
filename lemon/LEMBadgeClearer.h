@@ -21,6 +21,10 @@ void LEMBadgeFadeWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInt
 /// seen to its end instead of being cut short by the reload it triggers.
 void LEMBadgeClearAll(void);
 
+/// YES when at least one leaf icon carries a badge right now, so the next clear
+/// has something to wipe. Read by the spread to pick the haptic variant.
+BOOL LEMBadgeHasBadges(void);
+
 /// Installs the badge hooks: the reuse resets of the badge view, the gate that
 /// drops a badge count Lemon has already cleared, and the observation of every
 /// other badge write. Safe to call more than once and from the loading thread;

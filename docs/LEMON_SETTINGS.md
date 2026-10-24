@@ -16,7 +16,7 @@
 | 分组 | 标题 | 键 | 作用 |
 | --- | --- | --- | --- |
 | 手势 | 启用 | `Enabled` | 全局开关。关闭后双指外扩手势直接忽略，触感、角标清空和淡出也一起停掉。 |
-| 手势 | 触感反馈 | `Haptics` | 手势触发时播放 `lemon/LEMRipple.ahap` 的自定义触感节奏；关闭后只做涟漪与清空，不震动。 |
+| 手势 | 触感反馈 | `Haptics` | 手势触发时播放自定义触感节奏；关闭后只做涟漪与清空，不震动。 |
 | 角标 | 角标维持 | `KeepCleared` | 抑制层开关。App 打开或退到后台时会重新上报角标；打开本项时，与已清除数字相同的旧值被忽略，新数字照常显示。关闭后手势照样清空角标并淡出，但不再拦截任何上报，旧数字会随 App 回来。 |
 
 三个开关都即时生效，不需要 respring：手势在 `Began` 时读一次全局开关，播放触感前读一次“触感反馈”；`LEMBadgeClearAll()` 进入时读一次全局开关；抑制层在记录基线（`LEMBadgeRecordBaseline`）和判断某次写入是否丢弃（`LEMBadgeShouldSuppressWrite`）时各读一次“角标维持”。“触感反馈”只决定震不震动，“角标维持”不影响清空本身，也不影响淡出。读取直接走 `CFPreferences`，cfprefsd 在面板保存后会把新值交给 SpringBoard，因此不需要额外注册 Darwin 通知。
@@ -25,7 +25,7 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 ## 文案
 
-- 分组“手势” footer：主屏幕双指外扩：图标向外扩散，同时清除所有角标，并按涟漪节奏播放自定义触感。关闭后手势不再响应。
+- 分组“手势” footer：主屏幕双指外扩：图标向外扩散，同时清除所有角标，并按涟漪节奏播放自定义触感；有角标被清掉时，触感末尾会多一段“点断”和“嗡咚”。关闭后手势不再响应。
 - 开关“启用”。
 - 开关“触感反馈”。
 - 分组“角标” footer：App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。
@@ -33,7 +33,7 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 ## 实现要点
 
-- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：两个 `groupSpecifierWithName:` 分组（带 `footerText`）加两个 `PSSwitchCell`（PSCellType 6）。
+- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：两个 `groupSpecifierWithName:` 分组（带 `footerText`）加三个 `PSSwitchCell`（PSCellType 6）。
 - specifier 的 target 是控制器自身，set/get 走 `-setPreferenceValue:specifier:` 与 `-readPreferenceValue:`；写值用 `CFPreferencesSetAppValue` + `CFPreferencesAppSynchronize` 落到 `com.lemon.ripple`，读值复用 `LEMPreferencesGetBool`，域和键只定义一次。
 - `Preferences.framework` 没有公开头文件，`PSListController`、`PSSpecifier` 的方法和 `PSSwitchCell` 常量都在这个 `.m` 里自行声明。关键是 `PSListController` 的 `_specifiers` ivar：表格渲染的是这个数组，子类必须把行写进它，而不是自己另开一个 ivar。声明里带上 `_specifiers` 后，编译器引用 `_OBJC_IVAR_$_PSListController._specifiers` 这个外部符号，由 Preferences 在加载时绑定；本机其他第三方面板（`DonutPrefs`、`HelloMemoryStatusPrefs`、`hello120hz`）用的是同一套写法。
 - 只写自己的 `_lemonSpecifiers` 也能编译、面板标题也能出现，但表格永远零行，设置里看到的就是一个空列表。

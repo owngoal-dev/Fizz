@@ -27,9 +27,11 @@
 
 ## 触感反馈
 
-`lemon/LEMRipple.ahap` 是手势的触感节奏，`lemon/LEMHaptics.m` 用 Core Haptics 播放；AHAP 随 dylib 一起装到 `Library/MobileSubstrate/DynamicLibraries/LEMRipple.ahap`，运行时用 `dladdr` 按 dylib 自身路径定位，roothide 与 rootless 都不需要硬编码前缀。读取用 `NSJSONSerialization` + `CHHapticPattern initWithDictionary:error:`，因为部署目标是 iOS 15，而 `initWithContentsOfURL:error:` 要 iOS 16。
+手势有两份 AHAP，`lemon/LEMHaptics.m` 用 Core Haptics 播放，随 dylib 一起装到 `Library/MobileSubstrate/DynamicLibraries/`，运行时用 `dladdr` 按 dylib 自身路径定位，roothide 与 rootless 都不需要硬编码前缀。读取用 `NSJSONSerialization` + `CHHapticPattern initWithDictionary:error:`，因为部署目标是 iOS 15，而 `initWithContentsOfURL:error:` 要 iOS 16。
 
-节奏按涟漪的时间轴排，总长 0.62 秒（0.5 秒动画 + 最多 0.1 秒延迟 + 收尾）：
+选择规则：手势触发时若主屏还有角标可清（`LEMBadgeHasBadges()` 为 YES，且全局开关打开），播 `LEMRippleCleared.ahap`；否则播 `LEMRipple.ahap`。变体在涟漪开始前定下来，与之后 `LEMBadgeClearAll()` 的时机对齐。
+
+两份文件的前 0.62 秒完全相同，总长 0.62 秒（0.5 秒动画 + 最多 0.1 秒延迟 + 收尾）：
 
 | 时间 | 事件 | 作用 |
 | --- | --- | --- |
@@ -37,11 +39,21 @@
 | 0.00–0.62 | 持续事件，强度曲线 0.10 → 0.85（0.06s）→ 0.50（0.30s）→ 0（0.62s） | 向外推的低频涌动，越往外越薄 |
 | 0.00–0.62 | 锐度曲线 −0.20 → 0.10（0.32s）→ 0.50 | 波到达边缘时变清脆 |
 | 0.14 / 0.30 / 0.47 | 瞬态，强度 0.40 / 0.30 / 0.20，锐度 0.38 / 0.47 / 0.57 | 三圈涟漪的“圈”感，越往外越轻、越尖 |
-| 0.60 | 瞬态，强度 0.22、锐度 0.80 | 涟漪收束、角标清空后的收尾一声 |
+| 0.60 | 瞬态，强度 0.22、锐度 0.80 | 涟漪收束的收尾一声 |
+
+`LEMRippleCleared.ahap` 在这之后接上“清空”的段落，总长 1.36 秒：
+
+| 时间 | 事件 | 作用 |
+| --- | --- | --- |
+| 0.62–0.70 | 留白 | 节奏被切断的停顿 |
+| 0.70 / 0.79 | 瞬态，强度 0.52 / 0.34，锐度 0.92 / 0.80 | “点断”：两记紧而短的“点”，后一下更轻 |
+| 0.96 | 瞬态，强度 0.90、锐度 0.04 | “咚”的冲击 |
+| 0.96–1.36 | 持续事件，强度曲线 0.90 → 1.00（0.05s）→ 0.62（0.18s）→ 0.25（0.32s）→ 0（0.40s），锐度曲线 0 → 0.18 | “嗡”的低频轰鸣，收在 0.96–1.36 之间 |
+| 1.06 | 瞬态，强度 0.30、锐度 0.08 | 余震，让“嗡咚”落到底 |
 
 实现要点：
 
-- 引擎只建一次，`playsHapticsOnly`、`isMutedForAudio`、`autoShutdownEnabled`；主屏出现时预热，空闲时由系统自动关停，`stoppedHandler` 与 `resetHandler` 维护运行状态。
+- 引擎只建一次，`playsHapticsOnly`、`isMutedForAudio`、`autoShutdownEnabled`；主屏出现时预热，空闲时由系统自动关停，`stoppedHandler` 与 `resetHandler` 维护运行状态。预热会把两份 pattern 都解析好并起引擎，第一次手势无论落在哪个变体都不用等。
 - 播放前若上一段还在尾巴里，先 `stopAtTime:0` 再播新的，连续触发不叠加。
 - 触感由 `LEMHapticsEnabled()` 控制，即全局开关与“触感反馈”同时打开；硬件不支持触感、AHAP 读不到或解析失败时静默不播，不影响手势与清空。
 - 生产日志不记录触感，只有加载时的 `ApelinLoaded`。
@@ -58,4 +70,4 @@
 
 ## 验证要点
 
-手工观察：双指外扩时图标向外扩散、页面不位移，同时有一段跟着涟漪走的触感；内收不触发；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
+手工观察：双指外扩时图标向外扩散、页面不位移，同时有一段跟着涟漪走的触感；有角标可清时，触感末尾会多出“点断”和“嗡咚”，没有角标时只有 0.62 秒的基础节奏；内收不触发；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。

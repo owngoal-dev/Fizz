@@ -95,7 +95,11 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 // until the wave has settled, because SpringBoard drops the badge views as soon
 // as the value goes.
 static void LEMRunSpread(UIPinchGestureRecognizer *recognizer) {
-    LEMHapticsPlaySpread();
+    // The haptic variant is chosen before the ripple starts: badges on the home
+    // screen mean the clear is queued, and that variant ends with the cut and
+    // the low thud for the wipe.
+    BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
+    LEMHapticsPlaySpread(clearingBadges);
     NSTimeInterval settle = LEMIconRippleRun(recognizer.view);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + LEMClearMargin) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{

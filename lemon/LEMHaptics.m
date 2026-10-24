@@ -2,10 +2,13 @@
 //  LEMHaptics.m
 //  Lemon
 //
-//  Core Haptics playback for the spread. The engine is created once and kept
-//  alive with auto shutdown, so the first spread of a session does not pay the
-//  engine start latency. The pattern is read from LEMRipple.ahap, which the
-//  build places next to the dylib.
+//  Core Haptics playback for the spread. Two AHAP files sit next to the dylib and
+//  share their first 0.62 s: LEMRipple.ahap is the plain spread, and
+//  LEMRippleCleared.ahap keeps that rhythm, cuts it with two tight dots and then
+//  drops into a low rumble and a thud for the badges that were wiped.
+//
+//  The engine is created once and kept alive with auto shutdown, so the first
+//  spread of a session does not pay the engine start latency.
 //
 
 #import "LEMHaptics.h"
@@ -15,13 +18,17 @@
 #import <CoreHaptics/CoreHaptics.h>
 #import <dlfcn.h>
 
-static NSString *const LEMHapticPatternFileName = @"LEMRipple.ahap";
+// Index 0 is the plain spread, index 1 the spread that clears badges.
+static NSString *const LEMHapticPatternFileNames[2] = {
+    @"LEMRipple.ahap",
+    @"LEMRippleCleared.ahap",
+};
 
 static CHHapticEngine *gEngine = nil;
-static CHHapticPattern *gPattern = nil;
+static CHHapticPattern *gPatterns[2] = { nil, nil };
 static id<CHHapticPatternPlayer> gPlayer = nil;
 static BOOL gEngineRunning = NO;
-static BOOL gPatternUnavailable = NO;
+static BOOL gPatternsUnavailable[2] = { NO, NO };
 static BOOL gPrewarmed = NO;
 
 // Core Haptics calls this code from its own queues, so the state above is only
@@ -35,10 +42,14 @@ static id LEMHapticLockToken(void) {
     return token;
 }
 
-// The pattern sits in the directory dyld loaded the dylib from. Resolving it
+static NSUInteger LEMHapticVariantIndex(BOOL clearingBadges) {
+    return clearingBadges ? 1 : 0;
+}
+
+// The patterns sit in the directory dyld loaded the dylib from. Resolving them
 // through dladdr keeps the lookup correct on both the roothide and the rootless
 // layout without hardcoding either prefix.
-static NSURL *LEMHapticPatternURL(void) {
+static NSURL *LEMHapticPatternURL(NSString *fileName) {
     Dl_info info;
     if (dladdr((const void *)LEMHapticPatternURL, &info) == 0 || info.dli_fname == NULL) {
         return nil;
@@ -47,32 +58,35 @@ static NSURL *LEMHapticPatternURL(void) {
     if (directory.length == 0) {
         return nil;
     }
-    return [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:LEMHapticPatternFileName]];
+    return [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:fileName]];
 }
 
-static CHHapticPattern *LEMHapticPatternValue(void) {
-    if (gPattern || gPatternUnavailable) {
-        return gPattern;
+// A pattern that is missing or malformed is remembered as unavailable: the
+// spread then stays silent instead of retrying the disk on every gesture.
+static CHHapticPattern *LEMHapticPatternValue(BOOL clearingBadges) {
+    NSUInteger index = LEMHapticVariantIndex(clearingBadges);
+    if (gPatterns[index] || gPatternsUnavailable[index]) {
+        return gPatterns[index];
     }
-    NSURL *url = LEMHapticPatternURL();
+    NSURL *url = LEMHapticPatternURL(LEMHapticPatternFileNames[index]);
     NSData *data = url ? [NSData dataWithContentsOfURL:url] : nil;
     if (!data) {
-        gPatternUnavailable = YES;
+        gPatternsUnavailable[index] = YES;
         return nil;
     }
     NSError *error = nil;
     id object = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
     if (![object isKindOfClass:[NSDictionary class]]) {
-        gPatternUnavailable = YES;
+        gPatternsUnavailable[index] = YES;
         return nil;
     }
     CHHapticPattern *pattern = [[CHHapticPattern alloc] initWithDictionary:object error:&error];
     if (!pattern) {
-        gPatternUnavailable = YES;
+        gPatternsUnavailable[index] = YES;
         return nil;
     }
-    gPattern = pattern;
-    return gPattern;
+    gPatterns[index] = pattern;
+    return pattern;
 }
 
 static CHHapticEngine *LEMHapticEngineValue(void) {
@@ -111,12 +125,12 @@ static CHHapticEngine *LEMHapticEngineValue(void) {
     return gEngine;
 }
 
-BOOL LEMHapticsPlaySpread(void) {
+BOOL LEMHapticsPlaySpread(BOOL clearingBadges) {
     if (!LEMHapticsEnabled()) {
         return NO;
     }
     @synchronized (LEMHapticLockToken()) {
-        CHHapticPattern *pattern = LEMHapticPatternValue();
+        CHHapticPattern *pattern = LEMHapticPatternValue(clearingBadges);
         if (!pattern) {
             return NO;
         }
@@ -153,7 +167,10 @@ void LEMHapticsPrewarm(void) {
     gPrewarmed = YES;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         @synchronized (LEMHapticLockToken()) {
-            (void)LEMHapticPatternValue();
+            // Both variants are parsed and the engine is started ahead of the
+            // first spread, whichever variant that spread turns out to need.
+            (void)LEMHapticPatternValue(NO);
+            (void)LEMHapticPatternValue(YES);
             (void)LEMHapticEngineValue();
         }
     });
