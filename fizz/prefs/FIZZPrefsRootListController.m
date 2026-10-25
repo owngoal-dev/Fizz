@@ -2,10 +2,9 @@
 //  FIZZPrefsRootListController.m
 //  Fizz
 //
-//  The Settings pane of Fizz. A banner at the top introduces the package, the
-//  studio that maintains it and its version; below it sit the three switches,
-//  the global one, the haptics one, and the one that decides whether a cleared
-//  badge stays cleared when its application publishes the old count again.
+//  The Settings pane of Fizz. A banner at the top introduces the package and
+//  holds the global switch; below it one unlabelled group holds the remaining
+//  two switches.
 //
 //  Preferences.framework is private and the SDK ships no headers for it, so the
 //  two classes the pane builds on are declared here; the bundle leaves
@@ -45,8 +44,6 @@
 // PSCellType: PSSwitchCell = 6.
 static const NSInteger FIZZSwitchCellType = 6;
 
-static NSString *const FIZZStudioName = @"乌龙工作室";
-
 @interface FIZZPrefsRootListController : PSListController
 @end
 
@@ -77,16 +74,21 @@ static CGImageRef FIZZCreateBannerIcon(void) {
     return NULL;
 }
 
-static const CGFloat FIZZBannerHeight = 144.0;
 static const CGFloat FIZZBannerSideInset = 16.0;
 static const CGFloat FIZZBannerTopInset = 12.0;
 static const CGFloat FIZZBannerBottomInset = 6.0;
 static const CGFloat FIZZBannerPadding = 16.0;
 static const CGFloat FIZZBannerIconSide = 50.0;
-static const CGFloat FIZZBannerPillHeight = 21.0;
+static const CGFloat FIZZBannerSwitchRowHeight = 31.0;
+static const CGFloat FIZZBannerSwitchRowInset = 9.0;
+
+// Padding, icon, gap, divider, gap, switch row, gap.
+static const CGFloat FIZZBannerCardHeight = 16.0 + 50.0 + 12.0 + 1.0 + FIZZBannerSwitchRowInset +
+                                           FIZZBannerSwitchRowHeight + FIZZBannerSwitchRowInset;
+static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeight + FIZZBannerBottomInset;
 
 // The card at the top of the pane: the icon, the name of the package, what the
-// gesture does in one line, and a footer row with the studio and the version.
+// gesture does in one line, and the global switch on the row under the divider.
 @interface FIZZBannerView : UIView
 @end
 
@@ -97,9 +99,8 @@ static const CGFloat FIZZBannerPillHeight = 21.0;
     UILabel *_titleLabel;
     UILabel *_subtitleLabel;
     UIView *_divider;
-    UILabel *_studioLabel;
-    UIView *_versionPill;
-    UILabel *_versionLabel;
+    UILabel *_enabledLabel;
+    UISwitch *_enabledSwitch;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -149,31 +150,25 @@ static const CGFloat FIZZBannerPillHeight = 21.0;
     _divider = [[UIView alloc] initWithFrame:CGRectZero];
     [_card addSubview:_divider];
 
-    _studioLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-    _studioLabel.font = [UIFont systemFontOfSize:12.0 weight:UIFontWeightSemibold];
-    _studioLabel.text = FIZZStudioName;
-    [_card addSubview:_studioLabel];
+    // The global switch is the one setting that belongs with the package itself,
+    // so it lives in the card instead of in the list below it. It writes the
+    // same domain as the rows do, so nothing else has to know it moved.
+    _enabledLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    // Same font as the row titles in the list below, so the switch row reads as
+    // one of them rather than as a smaller caption.
+    _enabledLabel.font = [UIFont systemFontOfSize:17.0 weight:UIFontWeightRegular];
+    _enabledLabel.text = @"启用";
+    [_card addSubview:_enabledLabel];
 
-    _versionPill = [[UIView alloc] initWithFrame:CGRectZero];
-    _versionPill.layer.cornerRadius = FIZZBannerPillHeight / 2.0;
-    _versionPill.layer.cornerCurve = kCACornerCurveContinuous;
-    _versionPill.layer.masksToBounds = YES;
-    [_card addSubview:_versionPill];
-
-    _versionLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-    _versionLabel.font = [UIFont systemFontOfSize:11.5 weight:UIFontWeightSemibold];
-    _versionLabel.textAlignment = NSTextAlignmentCenter;
-    _versionLabel.text = [NSString stringWithFormat:@"v%@", [self bundleVersion]];
-    [_versionPill addSubview:_versionLabel];
+    _enabledSwitch = [[UISwitch alloc] initWithFrame:CGRectZero];
+    _enabledSwitch.on = FIZZPreferencesGetBool(FIZZPreferencesEnabledKey, YES);
+    [_enabledSwitch addTarget:self
+                       action:@selector(enabledSwitchChanged:)
+             forControlEvents:UIControlEventValueChanged];
+    [_card addSubview:_enabledSwitch];
 
     [self updateColors];
     return self;
-}
-
-- (NSString *)bundleVersion {
-    NSBundle *bundle = [NSBundle bundleForClass:self.class];
-    NSString *version = [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    return version.length > 0 ? version : @"1.0";
 }
 
 - (UIColor *)accentColor {
@@ -189,17 +184,15 @@ static const CGFloat FIZZBannerPillHeight = 21.0;
         _gradient.colors = @[ (__bridge id)[UIColor colorWithRed:0.098 green:0.110 blue:0.157 alpha:1.0].CGColor,
                               (__bridge id)[UIColor colorWithRed:0.055 green:0.129 blue:0.118 alpha:1.0].CGColor ];
         _card.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.07].CGColor;
-        _versionPill.backgroundColor = [self.accentColor colorWithAlphaComponent:0.18];
     } else {
         _gradient.colors = @[ (__bridge id)[UIColor colorWithRed:0.957 green:0.973 blue:1.000 alpha:1.0].CGColor,
                               (__bridge id)[UIColor colorWithRed:0.906 green:0.984 blue:0.965 alpha:1.0].CGColor ];
         _card.layer.borderColor = [UIColor colorWithWhite:0.0 alpha:0.05].CGColor;
-        _versionPill.backgroundColor = [self.accentColor colorWithAlphaComponent:0.12];
     }
     _titleLabel.textColor = [UIColor labelColor];
     _subtitleLabel.textColor = [UIColor secondaryLabelColor];
-    _studioLabel.textColor = [UIColor secondaryLabelColor];
-    _versionLabel.textColor = self.accentColor;
+    _enabledLabel.textColor = [UIColor labelColor];
+    _enabledSwitch.onTintColor = self.accentColor;
     _divider.backgroundColor = [UIColor separatorColor];
 }
 
@@ -213,13 +206,19 @@ static const CGFloat FIZZBannerPillHeight = 21.0;
     }
 }
 
+- (void)enabledSwitchChanged:(UISwitch *)sender {
+    CFPreferencesSetAppValue((__bridge CFStringRef)FIZZPreferencesEnabledKey,
+                             (__bridge CFPropertyListRef) @(sender.isOn),
+                             (__bridge CFStringRef)FIZZPreferencesDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)FIZZPreferencesDomain);
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
 
     CGFloat width = CGRectGetWidth(self.bounds);
     _card.frame = CGRectMake(FIZZBannerSideInset, FIZZBannerTopInset,
-                             width - FIZZBannerSideInset * 2.0,
-                             CGRectGetHeight(self.bounds) - FIZZBannerTopInset - FIZZBannerBottomInset);
+                             width - FIZZBannerSideInset * 2.0, FIZZBannerCardHeight);
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
@@ -239,17 +238,14 @@ static const CGFloat FIZZBannerPillHeight = 21.0;
     _divider.frame = CGRectMake(FIZZBannerPadding, dividerY,
                                 cardWidth - FIZZBannerPadding * 2.0, 1.0 / UIScreen.mainScreen.scale);
 
-    CGFloat rowCentre = dividerY + (CGRectGetHeight(_card.bounds) - dividerY) / 2.0;
+    CGFloat rowTop = dividerY + FIZZBannerSwitchRowInset;
+    CGSize switchSize = [_enabledSwitch sizeThatFits:CGSizeMake(cardWidth, FIZZBannerSwitchRowHeight)];
+    _enabledSwitch.frame = CGRectMake(cardWidth - FIZZBannerPadding - switchSize.width,
+                                      rowTop + (FIZZBannerSwitchRowHeight - switchSize.height) / 2.0,
+                                      switchSize.width, switchSize.height);
 
-    CGSize versionSize = [_versionLabel sizeThatFits:CGSizeMake(cardWidth, FIZZBannerPillHeight)];
-    CGFloat pillWidth = versionSize.width + 16.0;
-    _versionPill.frame = CGRectMake(cardWidth - FIZZBannerPadding - pillWidth,
-                                    rowCentre - FIZZBannerPillHeight / 2.0,
-                                    pillWidth, FIZZBannerPillHeight);
-    _versionLabel.frame = CGRectMake(8.0, 0.0, pillWidth - 16.0, FIZZBannerPillHeight);
-
-    CGFloat studioWidth = cardWidth - pillWidth - FIZZBannerPadding * 2.0 - 10.0;
-    _studioLabel.frame = CGRectMake(FIZZBannerPadding, rowCentre - 8.0, studioWidth, 16.0);
+    CGFloat labelWidth = CGRectGetMinX(_enabledSwitch.frame) - FIZZBannerPadding - 12.0;
+    _enabledLabel.frame = CGRectMake(FIZZBannerPadding, rowTop, labelWidth, FIZZBannerSwitchRowHeight);
 }
 
 - (CGSize)sizeThatFits:(CGSize)size {
@@ -324,7 +320,7 @@ static UITableView *FIZZFindTableView(UIView *view) {
     }
 }
 
-// Both switches are stored the same way: the specifier carries its own key and
+// Each row stores itself the same way: the specifier carries its own key and
 // the cell calls back into the two methods below.
 - (PSSpecifier *)switchNamed:(NSString *)name key:(NSString *)key {
     PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:name
@@ -340,17 +336,15 @@ static UITableView *FIZZFindTableView(UIView *view) {
 
 - (NSArray *)specifiers {
     if (!_specifiers) {
-        PSSpecifier *gestures = [PSSpecifier groupSpecifierWithName:@"手势"];
-        [gestures setProperty:@"双指外扩清除所有角标。" forKey:@"footerText"];
-
-        PSSpecifier *badges = [PSSpecifier groupSpecifierWithName:@"角标"];
-        [badges setProperty:@"App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，"
-                             @"新数字照常显示；关闭后旧数字可能再次出现。"
-                    forKey:@"footerText"];
+        // One group, no title: the banner already says what this page is about,
+        // so only the badge footer needs to stay.
+        PSSpecifier *rows = [PSSpecifier groupSpecifierWithName:@""];
+        [rows setProperty:@"App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，"
+                          @"新数字照常显示；关闭后旧数字可能再次出现。"
+                 forKey:@"footerText"];
 
         _specifiers = [@[
-            gestures, [self switchNamed:@"启用" key:FIZZPreferencesEnabledKey],
-            [self switchNamed:@"触感反馈" key:FIZZPreferencesHapticsKey], badges,
+            rows, [self switchNamed:@"触感反馈" key:FIZZPreferencesHapticsKey],
             [self switchNamed:@"角标维持" key:FIZZPreferencesKeepClearedKey]
         ] mutableCopy];
     }

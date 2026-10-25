@@ -7,18 +7,18 @@
 - `$PREFIX/Library/PreferenceLoader/Preferences/Fizz.plist`：设置首页里名为“Fizz”的入口，`cell` 是 `PSLinkCell`，`detail` 指向 `FIZZPrefsRootListController`。
 - `$PREFIX/Library/PreferenceBundles/FizzPrefs.bundle`：真正的面板，`Info.plist` 的 `NSPrincipalClass` 是 `FIZZPrefsRootListController`，可执行文件由 `fizz/prefs/FIZZPrefsRootListController.m` 和共享的 `fizz/FIZZPreferences.m` 编译而来（`apelin/build.sh` 单独用 `-bundle -undefined dynamic_lookup` 编译，不链接 `Preferences.framework`）。
 
-面板安装后，Settings 进程要重新启动一次才会载入新 bundle；已经打开的面板会继续用内存里的旧二进制。
+面板只在被打开时载入 bundle，所以只改面板只需重装再重新进入这个面板，不需要注销或重启 Settings；已经打开着的面板会继续用内存里的旧二进制，关掉再进即可。
 
 ## 面板外观
 
-表格顶部有一个 banner（`FIZZBannerView`），挂在 `tableHeaderView` 上，因此随列表滚走、不遮挡内容，高度固定 `FIZZBannerHeight = 144`：
+表格顶部有一个 banner（`FIZZBannerView`），挂在 `tableHeaderView` 上，因此随列表滚走、不遮挡内容，高度由内部尺寸算出为 `FIZZBannerHeight = 146`（上 12 + 卡片 128 + 下 6）：
 
-- 卡片左右各留 16，上留 12、下留 6，圆角 18（continuous），1 像素描边。
+- 卡片左右各留 16，圆角 18（continuous），1 像素描边；卡片内从上到下：16 上留白、图标 50、间隔 12、分隔线 1、间隔 9、开关行 31（正好是 `UISwitch` 的高度）、9 下留白。
 - 卡片底色是 `CAGradientLayer` 对角渐变：浅色模式 `#F5F7FF → #E7FBF6`，深色模式 `#191C28 → #0E211E`；`traitCollectionDidChange:` 里换色，并用 `CATransaction` 关掉隐式动画。
 - 左边 50×50 的图标用 ImageIO 直接读 bundle 里的 `banner@3x.png` 塞进 `layer.contents`（`kCAGravityResizeAspect`），不走 `imageNamed:inBundle:`，以免被解析到 Settings 主 bundle。
 - 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。
-- 分隔线下是页脚一行：左边“乌龙工作室”，右边版本药丸 `v0.1.0`，药丸底色是青绿 accent 的 12%（深色 18%），文字同色。
-- 版本号取自 bundle 的 `CFBundleShortVersionString`，不硬编码。
+- 分隔线下是全局开关行：左边 17 号常规字重的“启用”（与下方列表行标题同字号），右边 `UISwitch`（`onTintColor` 是青绿 accent）。它就是总开关本身，直接读写 `com.fizz.ripple` 的 `Enabled`，不再是表里的一行，所以不会经过 specifier 的 set/get。
+- 卡片里不再显示“乌龙工作室”和版本号；版本只出现在包信息里。
 
 面板要拿到表格：`FIZZFindTableView()` 从 `self.view` 往下找第一个 `UITableView`（`PSListController` 的 `view` 可能本身就是表），宽度还没算出来时先跳过；`viewDidLoad` 异步装一次，`viewDidLayoutSubviews` 每次核对，宽度变了才重设，因此不会死循环。
 
@@ -26,11 +26,11 @@
 
 面板只有三个开关，都写在 `com.fizz.ripple` 域里，默认都是打开（没写过值时读取回退到 `YES`）：
 
-| 分组 | 标题 | 键 | 作用 |
+| 位置 | 标题 | 键 | 作用 |
 | --- | --- | --- | --- |
-| 手势 | 启用 | `Enabled` | 全局开关。关闭后双指外扩手势直接忽略，触感、角标清空和气泡淡出也一起停掉。 |
-| 手势 | 触感反馈 | `Haptics` | 图标穿过原位那一刻震一下：没有角标可清时是 `Soft` 闷轻一声，有角标、气泡炸掉时是 `Rigid` 硬脆一声；关闭后只做涟漪与清空，不震动。 |
-| 角标 | 角标维持 | `KeepCleared` | 抑制层开关。App 打开或退到后台时会重新上报角标；打开本项时，与已清除数字相同的旧值被忽略，新数字照常显示。关闭后手势照样清空角标并让气泡淡出，但不再拦截任何上报，旧数字会随 App 回来。 |
+| banner 卡片 | 启用 | `Enabled` | 全局开关。关闭后双指外扩手势直接忽略，触感、角标清空和气泡淡出也一起停掉。 |
+| 唯一分组 | 触感反馈 | `Haptics` | 图标穿过原位那一刻震一下：没有角标可清时是 `Soft` 闷轻一声，有角标、气泡炸掉时是 `Rigid` 硬脆一声；关闭后只做涟漪与清空，不震动。 |
+| 唯一分组 | 角标维持 | `KeepCleared` | 抑制层开关。App 打开或退到后台时会重新上报角标；打开本项时，与已清除数字相同的旧值被忽略，新数字照常显示。关闭后手势照样清空角标并让气泡淡出，但不再拦截任何上报，旧数字会随 App 回来。 |
 
 三个开关都即时生效，不需要 respring：手势在 `Began` 时读一次全局开关，播放触感前读一次“触感反馈”；`FIZZBadgeClearAll()` 进入时读一次全局开关；抑制层在记录基线（`FIZZBadgeRecordBaseline`）和判断某次写入是否丢弃（`FIZZBadgeShouldSuppressWrite`）时各读一次“角标维持”。“触感反馈”只决定震不震动，“角标维持”不影响清空本身，也不影响气泡淡出。读取直接走 `CFPreferences`，cfprefsd 在面板保存后会把新值交给 SpringBoard，因此不需要额外注册 Darwin 通知。
 
@@ -38,15 +38,16 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 ## 文案
 
-- 分组“手势” footer：双指外扩清除所有角标。
-- 开关“启用”。
+- banner 标题 `Fizz`，副标题“双指外扩，角标随图标一起散开”。
+- banner 开关行“启用”。
+- 唯一分组没有标题（`groupSpecifierWithName:@""`），footer 沿用原“角标”分组的文案：App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。
+- 原“手势”分组的标题和 footer（“双指外扩清除所有角标。”）已删除，那句话改由 banner 副标题承担。
 - 开关“触感反馈”。
-- 分组“角标” footer：App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。
 - 开关“角标维持”，键仍是 `KeepCleared`，改名不改键，已保存的设置不受影响。
 
 ## 实现要点
 
-- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：两个 `groupSpecifierWithName:` 分组（带 `footerText`）加三个 `PSSwitchCell`（PSCellType 6）。
+- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：一个无标题的 `groupSpecifierWithName:@""` 分组（带 `footerText`）加两个 `PSSwitchCell`（PSCellType 6）；总开关是 banner 卡片里的真实 `UISwitch`，不在 specifier 里。
 - specifier 的 target 是控制器自身，set/get 走 `-setPreferenceValue:specifier:` 与 `-readPreferenceValue:`；写值用 `CFPreferencesSetAppValue` + `CFPreferencesAppSynchronize` 落到 `com.fizz.ripple`，读值复用 `FIZZPreferencesGetBool`，域和键只定义一次。
 - `Preferences.framework` 没有公开头文件，`PSListController`、`PSSpecifier` 的方法和 `PSSwitchCell` 常量都在这个 `.m` 里自行声明。关键是 `PSListController` 的 `_specifiers` ivar：表格渲染的是这个数组，子类必须把行写进它，而不是自己另开一个 ivar。声明里带上 `_specifiers` 后，编译器引用 `_OBJC_IVAR_$_PSListController._specifiers` 这个外部符号，由 Preferences 在加载时绑定；本机其他第三方面板（`DonutPrefs`、`HelloMemoryStatusPrefs`、`hello120hz`）用的是同一套写法。
 - 只写自己的 `_ownSpecifiers` 也能编译、面板标题也能出现，但表格永远零行，设置里看到的就是一个空列表。
