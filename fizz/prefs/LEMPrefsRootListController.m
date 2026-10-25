@@ -1,8 +1,8 @@
 //
 //  LEMPrefsRootListController.m
-//  Lemon
+//  Fizz
 //
-//  The Settings pane of Lemon. It holds three switches and nothing else: the
+//  The Settings pane of Fizz. It holds three switches and nothing else: the
 //  global switch, the haptics switch, and the switch that decides whether a
 //  cleared badge stays cleared when its application publishes the old count
 //  again.
@@ -52,7 +52,7 @@ static const NSInteger LEMSwitchCellType = 6;
 - (instancetype)init {
     self = [super init];
     if (self) {
-        self.title = @"Lemon";
+        self.title = @"Fizz";
     }
     return self;
 }

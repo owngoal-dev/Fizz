@@ -1,4 +1,4 @@
-# Lemon 徽章清除
+# Fizz 徽章清除
 
 ## 逆向结论
 
@@ -16,7 +16,7 @@
 
 ## 实现
 
-`lemon/LEMBadgeClearer.m` 分四层：
+`fizz/LEMBadgeClearer.m` 分四层：
 
 1. 数据层：从 `SBIconController.sharedInstance` 取到 `iconManager.iconModel.leafIcons`，对每个 `badgeNumberOrString` 非空的图标先 `[application setBadgeValue:nil]`，再 `[icon setBadge:nil]`、`[icon noteBadgeDidChange]`。只清 icon 不清 application 不持久，徽章会立刻回来。
 2. 持久层：清一个图标前，把它的 `bundleIdentifier` 和当时的值记进 `badge-suppression.plist`。之后 `-setBadgeValue:`、`-setBadge:`、`-remoteBadgeValueDidChange` 上收到的写入如果与记录完全相同，就直接丢弃；值不同则视为真实变化，放行并删除记录。App 重推旧值因此被吞掉，而新消息、已读归零都照常生效。这一层由设置里的“角标维持”开关控制（键 `KeepCleared`，默认打开）：关闭时手势仍然清空并按节拍让徽章淡出，但不再记录基线，也不再拦截任何写入。
@@ -27,7 +27,7 @@
 
 ## 状态文件
 
-抑制表写在 `LEMState` 的目录下：优先 `<jbroot>/var/mobile/Library/Lemon/badge-suppression.plist`，其次 `/var/mobile/Library/Lemon/`，最后是 `NSTemporaryDirectory()/Lemon/`。目录由 SpringBoard 在第一次写入时创建，文件写成 `NSFileProtectionNone`，保证下次开机首次解锁前也能读到。旧版本放在 `<jbroot>/var/log/lemon/badge-suppression.plist` 或 `/var/jb/var/log/lemon/` 的表会在第一次读取时接管，不需要 postinst。重装或升级 Lemon 不会清掉这些文件。
+抑制表写在 `LEMState` 的目录下：优先 `<jbroot>/var/mobile/Library/Fizz/badge-suppression.plist`，其次 `/var/mobile/Library/Fizz/`，最后是 `NSTemporaryDirectory()/Fizz/`。目录由 SpringBoard 在第一次写入时创建，文件写成 `NSFileProtectionNone`，保证下次开机首次解锁前也能读到。旧版本放在 `<jbroot>/var/log/fizz/badge-suppression.plist` 或 `/var/jb/var/log/fizz/` 的表会在第一次读取时接管，不需要 postinst。重装或升级 Fizz 不会清掉这些文件。
 
 ## hooks
 

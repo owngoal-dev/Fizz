@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>CFBundleExecutable</key>
-	<string>LemonPrefs</string>
+	<string>FizzPrefs</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.lemon.ripple.prefs</string>
 	<key>CFBundleInfoDictionaryVersion</key>

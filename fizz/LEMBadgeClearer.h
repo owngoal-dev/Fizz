@@ -1,6 +1,6 @@
 //
 //  LEMBadgeClearer.h
-//  Lemon
+//  Fizz
 //
 //  Clears every application badge on the home screen: the badge value the
 //  application object carries and the badge view that draws it.
@@ -31,7 +31,7 @@ BOOL LEMBadgeHasBadges(void);
 extern const NSTimeInterval LEMBadgePopBeatShare;
 
 /// Installs the badge hooks: the reuse resets of the badge view, the gate that
-/// drops a badge count Lemon has already cleared, and the observation of every
+/// drops a badge count Fizz has already cleared, and the observation of every
 /// other badge write. Safe to call more than once and from the loading thread;
 /// call it before SpringBoard restores its badges.
 void LEMBadgeInstallWatchers(void);

@@ -1,8 +1,8 @@
 //
 //  LEMHook.h
-//  Lemon
+//  Fizz
 //
-//  Method hooking shared by the Lemon modules. The device has no Substrate
+//  Method hooking shared by the Fizz modules. The device has no Substrate
 //  headers, so MSHookMessageEx is resolved at runtime and the plain Objective-C
 //  runtime is used when it is missing.
 //

@@ -1,8 +1,8 @@
 //
 //  LEMHomeGesture.m
-//  Lemon
+//  Fizz
 //
-//  The home screen side of Lemon: a pinch recognizer on the home screen icon
+//  The home screen side of Fizz: a pinch recognizer on the home screen icon
 //  scroll view that follows the fingers before UIKit's own threshold is
 //  reached, the pan arbitration that keeps a two-finger spread from dragging
 //  the page, and the ripple and badge clearing the spread triggers.
@@ -123,7 +123,7 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 static NSUInteger gSpreadGeneration = 0;
 
 static void LEMRunSpread(UIView *hostView) {
-    // Badges on the home screen mean bubbles will burst, and the one tap Lemon
+    // Badges on the home screen mean bubbles will burst, and the one tap Fizz
     // still plays marks the moment the last of them is gone.
     BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
     NSUInteger generation = ++gSpreadGeneration;

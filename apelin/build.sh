@@ -1,19 +1,19 @@
 #!/bin/sh
-# Apelin external build script for Lemon.
+# Apelin external build script for Fizz.
 # Compiles the SpringBoard tweak and the Settings pane for the target bootstrap,
 # signs both and writes one .deb into $APELIN_PACKAGE_DIR.
 
 set -eu
 
 PACKAGE_ID="com.lemon.ripple"
-PACKAGE_NAME="Lemon"
+PACKAGE_NAME="Fizz"
 PACKAGE_VERSION="0.1.0"
 PACKAGE_AUTHOR="Lessica <82flex@gmail.com>"
-TWEAK_NAME="LEMRipple"
-PREFS_NAME="LemonPrefs"
+TWEAK_NAME="Fizz"
+PREFS_NAME="FizzPrefs"
 
 ROOT="${APELIN_PROJECT_ROOT:-$(pwd)}"
-SRC_DIR="$ROOT/lemon"
+SRC_DIR="$ROOT/fizz"
 PREF_SRC_DIR="$SRC_DIR/prefs"
 BUILD_ID="${APELIN_BUILD_ID:-dev}"
 PACKAGE_DIR="${APELIN_PACKAGE_DIR:?APELIN_PACKAGE_DIR is required}"
@@ -26,7 +26,7 @@ else
     ARCHS="arm64e"
 fi
 
-WORK_DIR="$(mktemp -d "$TMPDIR/lemon-build.XXXXXX")"
+WORK_DIR="$(mktemp -d "$TMPDIR/fizz-build.XXXXXX")"
 OBJ_DIR="$WORK_DIR/obj"
 STAGE_DIR="$WORK_DIR/stage"
 mkdir -p "$OBJ_DIR" "$STAGE_DIR"
@@ -108,7 +108,7 @@ cp "$OBJ_DIR/$TWEAK_NAME.dylib" "$LIB_DIR/$TWEAK_NAME.dylib"
 cp "$SRC_DIR/$TWEAK_NAME.plist" "$LIB_DIR/$TWEAK_NAME.plist"
 cp "$OBJ_DIR/$PREFS_NAME" "$PREFS_BUNDLE_DIR/$PREFS_NAME"
 cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
-cp "$PREF_SRC_DIR/Lemon.plist" "$PREFS_ENTRY_DIR/Lemon.plist"
+cp "$PREF_SRC_DIR/Fizz.plist" "$PREFS_ENTRY_DIR/Fizz.plist"
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF
 Package: $PACKAGE_ID

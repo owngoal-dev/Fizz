@@ -1,9 +1,9 @@
 //
 //  LEMState.m
-//  Lemon
+//  Fizz
 //
-//  Lemon keeps its state in <jbroot>/var/mobile/Library/Lemon, with the plain
-//  /var/mobile/Library/Lemon and the temporary directory as fallbacks for other
+//  Fizz keeps its state in <jbroot>/var/mobile/Library/Fizz, with the plain
+//  /var/mobile/Library/Fizz and the temporary directory as fallbacks for other
 //  bootstrap layouts. The bootstrap root is found by walking up from the loaded
 //  image, the same way on roothide and rootful layouts.
 //
@@ -12,7 +12,7 @@
 
 #import <dlfcn.h>
 
-static NSString *const LEMStateDirectoryName = @"Lemon";
+static NSString *const LEMStateDirectoryName = @"Fizz";
 
 static NSString *LEMJBRootPath(void) {
     static NSString *path = nil;
@@ -38,9 +38,9 @@ static NSArray<NSString *> *LEMStateDirectoryCandidates(void) {
     NSMutableArray<NSString *> *candidates = [NSMutableArray array];
     NSString *jbroot = LEMJBRootPath();
     if (jbroot.length > 0) {
-        [candidates addObject:[jbroot stringByAppendingPathComponent:@"var/mobile/Library/Lemon"]];
+        [candidates addObject:[jbroot stringByAppendingPathComponent:@"var/mobile/Library/Fizz"]];
     }
-    [candidates addObject:@"/var/mobile/Library/Lemon"];
+    [candidates addObject:@"/var/mobile/Library/Fizz"];
     [candidates addObject:[NSTemporaryDirectory() stringByAppendingPathComponent:LEMStateDirectoryName]];
     return candidates;
 }

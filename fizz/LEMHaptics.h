@@ -1,8 +1,8 @@
 //
 //  LEMHaptics.h
-//  Lemon
+//  Fizz
 //
-//  The only haptic Lemon has left: one system impact that marks the badge
+//  The only haptic Fizz has left: one system impact that marks the badge
 //  bubbles vanishing. The spread itself is silent.
 //
 

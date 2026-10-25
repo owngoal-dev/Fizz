@@ -1,6 +1,6 @@
 //
 //  LEMBadgeClearer.m
-//  Lemon
+//  Fizz
 //
 //  Clearing badges has four sides, all of them found by dumping and watching the
 //  running SpringBoard:
@@ -16,7 +16,7 @@
 //  publishes its own badge when it leaves the foreground, over BoardServices and
 //  UIKitServices, and SpringBoard hands the value back after its own restart.
 //  Clearing the objects is therefore never enough: the old number returns as
-//  soon as the application is opened again. So every bundle Lemon clears is
+//  soon as the application is opened again. So every bundle Fizz clears is
 //  remembered with the count it had, and a later write of exactly that count is
 //  dropped before it reaches SBApplication. A different count is a real change
 //  (messages read, new messages) and goes through, which also releases the
@@ -54,13 +54,13 @@ static NSString *const LEMBadgeStateFileName = @"badge-suppression.plist";
 
 static NSHashTable<UIView *> *gPoppingBadgeViews = nil;
 
-// Set while Lemon itself is writing the badge values, so the write gate can tell
+// Set while Fizz itself is writing the badge values, so the write gate can tell
 // its own clearing apart from a badge the system hands back.
 static BOOL gInsideSelfClear = NO;
 
 #pragma mark - Suppression state
 
-// The cleared count of every bundle Lemon has cleared, keyed by bundle
+// The cleared count of every bundle Fizz has cleared, keyed by bundle
 // identifier.
 static os_unfair_lock gSuppressionLock = OS_UNFAIR_LOCK_INIT;
 static NSMutableDictionary<NSString *, NSNumber *> *gSuppressedBadges = nil;
@@ -106,7 +106,7 @@ static void LEMBadgeRecordBaseline(NSString *bundleIdentifier, id badge) {
     os_unfair_lock_unlock(&gSuppressionLock);
 }
 
-// YES means the write only repeats the count Lemon has already cleared, so the
+// YES means the write only repeats the count Fizz has already cleared, so the
 // caller drops it. Any other count is a real change: it is let through and the
 // bundle is released from suppression.
 static BOOL LEMBadgeShouldSuppressWrite(NSString *bundleIdentifier, id value) {
@@ -174,7 +174,7 @@ static void LEMHookedBadgeConfigureAnimated(SBIconBadgeView *self, SEL _cmd, SBI
 
 #pragma mark - Write gate
 
-// The writes Lemon watches. Only the application write is altered (the stale
+// The writes Fizz watches. Only the application write is altered (the stale
 // count is dropped); the icon write is dropped only when it repeats a cleared
 // count.
 static void (*LEMOriginalSetBadgeValue)(id, SEL, id) = NULL;
@@ -284,7 +284,7 @@ void LEMBadgeInstallWatchers(void) {
         return;
     }
     // A class SpringBoard has not registered yet is retried, but each hook is
-    // installed at most once so a retry can never wrap Lemon around itself.
+    // installed at most once so a retry can never wrap Fizz around itself.
     static NSUInteger attempts = 0;
     if (attempts++ >= 50) {
         return;

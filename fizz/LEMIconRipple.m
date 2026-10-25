@@ -1,6 +1,6 @@
 //
 //  LEMIconRipple.m
-//  Lemon
+//  Fizz
 //
 //  Radial icon ripple: each icon is pushed away from the window center along
 //  the line that joins it to that center, then springs back. Icons farther from

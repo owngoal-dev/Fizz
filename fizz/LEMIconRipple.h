@@ -1,6 +1,6 @@
 //
 //  LEMIconRipple.h
-//  Lemon
+//  Fizz
 //
 //  Radial icon ripple used by the home screen spread gesture.
 //

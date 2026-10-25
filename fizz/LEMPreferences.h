@@ -1,6 +1,6 @@
 //
 //  LEMPreferences.h
-//  Lemon
+//  Fizz
 //
 //  Preferences shared by the SpringBoard tweak and the Settings pane. The pane
 //  writes the domain below; the tweak reads it when a gesture starts and before

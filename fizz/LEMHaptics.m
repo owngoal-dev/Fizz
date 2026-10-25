@@ -1,6 +1,6 @@
 //
 //  LEMHaptics.m
-//  Lemon
+//  Fizz
 //
 //  One system impact and nothing else. The tap is played at the instant the last
 //  badge bubble is gone, so the spread itself carries no haptic at all.

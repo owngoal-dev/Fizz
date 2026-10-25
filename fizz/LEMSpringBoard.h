@@ -1,9 +1,9 @@
 //
 //  LEMSpringBoard.h
-//  Lemon
+//  Fizz
 //
-//  The SpringBoard classes Lemon reaches by name. SpringBoard ships no headers,
-//  so only the members Lemon uses are declared here; the classes are looked up
+//  The SpringBoard classes Fizz reaches by name. SpringBoard ships no headers,
+//  so only the members Fizz uses are declared here; the classes are looked up
 //  at runtime because they do not exist outside SpringBoard.
 //
 

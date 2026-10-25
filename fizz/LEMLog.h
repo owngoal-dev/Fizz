@@ -1,8 +1,8 @@
 //
 //  LEMLog.h
-//  Lemon
+//  Fizz
 //
-//  Lemon emits one line in production: the marker the Apelin loader watches to
+//  Fizz emits one line in production: the marker the Apelin loader watches to
 //  confirm that the tweak is loaded. Everything else is kept out of shipping
 //  builds.
 //

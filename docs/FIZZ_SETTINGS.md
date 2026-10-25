@@ -1,11 +1,11 @@
-# Lemon 设置面板
+# Fizz 设置面板
 
 ## 入口
 
 设置面板走 PreferenceLoader，打包成两个部件：
 
-- `$PREFIX/Library/PreferenceLoader/Preferences/Lemon.plist`：设置首页里名为“Lemon”的入口，`cell` 是 `PSLinkCell`，`detail` 指向 `LEMPrefsRootListController`。
-- `$PREFIX/Library/PreferenceBundles/LemonPrefs.bundle`：真正的面板，`Info.plist` 的 `NSPrincipalClass` 是 `LEMPrefsRootListController`，可执行文件由 `lemon/prefs/LEMPrefsRootListController.m` 和共享的 `lemon/LEMPreferences.m` 编译而来（`apelin/build.sh` 单独用 `-bundle -undefined dynamic_lookup` 编译，不链接 `Preferences.framework`）。
+- `$PREFIX/Library/PreferenceLoader/Preferences/Fizz.plist`：设置首页里名为“Fizz”的入口，`cell` 是 `PSLinkCell`，`detail` 指向 `LEMPrefsRootListController`。
+- `$PREFIX/Library/PreferenceBundles/FizzPrefs.bundle`：真正的面板，`Info.plist` 的 `NSPrincipalClass` 是 `LEMPrefsRootListController`，可执行文件由 `fizz/prefs/LEMPrefsRootListController.m` 和共享的 `fizz/LEMPreferences.m` 编译而来（`apelin/build.sh` 单独用 `-bundle -undefined dynamic_lookup` 编译，不链接 `Preferences.framework`）。
 
 面板安装后，Settings 进程要重新启动一次才会载入新 bundle；已经打开的面板会继续用内存里的旧二进制。
 

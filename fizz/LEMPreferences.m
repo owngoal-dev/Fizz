@@ -1,6 +1,6 @@
 //
 //  LEMPreferences.m
-//  Lemon
+//  Fizz
 //
 //  The Settings pane writes com.lemon.ripple through the Preferences framework,
 //  so the tweak reads the same domain with CFPreferences. Every read is a plain

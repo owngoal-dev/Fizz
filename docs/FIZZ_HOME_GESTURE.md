@@ -1,10 +1,10 @@
-# Lemon 主屏手势与图标涟漪
+# Fizz 主屏手势与图标涟漪
 
-本文件记录 `lemon/LEMHomeGesture.m` 的手势接入方式、双指外扩与主屏 `SBIconScrollView` 内置 pan 的冲突处理，以及 `lemon/LEMIconRipple.m` 的涟漪参数。
+本文件记录 `fizz/LEMHomeGesture.m` 的手势接入方式、双指外扩与主屏 `SBIconScrollView` 内置 pan 的冲突处理，以及 `fizz/LEMIconRipple.m` 的涟漪参数。
 
 ## 冲突来源
 
-主屏 `SBIconScrollView` 的 `panGestureRecognizer` 默认 `minimumNumberOfTouches=1`、`maximumNumberOfTouches=NSUIntegerMax`，双指拖动同样算一次 pan；iOS 17 主屏没有系统 pinch recognizer（`pinchGestureRecognizer=nil`），所以 Lemon 的 pinch 完全是自己装的。
+主屏 `SBIconScrollView` 的 `panGestureRecognizer` 默认 `minimumNumberOfTouches=1`、`maximumNumberOfTouches=NSUIntegerMax`，双指拖动同样算一次 pan；iOS 17 主屏没有系统 pinch recognizer（`pinchGestureRecognizer=nil`），所以 Fizz 的 pinch 完全是自己装的。
 
 两者并行时，双指外扩会把页面一起拖走；手指先后落下时还会出现“先单指拖动、再加第二指”的路径，这时 pan 已经在跑。
 
@@ -48,7 +48,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 - 触发条件：手势真的触发了涟漪，并且触发时主屏还有角标可清（`LEMBadgeHasBadges()` 为 YES、全局开关打开）。没有角标就没有淡出收尾，也就不点。
 - 时机：`LEMRunSpread` 从涟漪的 `settle` 反推出最后一枚气泡消失的时刻（`LEMIconRippleBadgeFinish`，0.5 秒 × 一半 + 最多 0.1 秒延迟 ≈ 0.35 秒），用 `dispatch_after` 把这一下排在那里，排在了清空数据的 `settle + 0.02`（0.62 秒）之前很多，所以点下去时气泡还在视野里，而图标还在回位。
 - 连打不叠加：排队前记下本轮 `gSpreadGeneration`，到点时若已有新的一轮接管就放弃，由新一轮自己排它那一下，因此不会连响、也不会提前响。
-- `lemon/LEMHaptics.m` 只留一个生成器：`UIImpactFeedbackStyleLight`，第一次用时建出来，播完立刻 `prepare` 重新武装，下一次不用等硬件唤醒。
+- `fizz/LEMHaptics.m` 只留一个生成器：`UIImpactFeedbackStyleLight`，第一次用时建出来，播完立刻 `prepare` 重新武装，下一次不用等硬件唤醒。
 - 主屏出现时 `LEMHapticsPrewarm()` 先 `prepare` 一次，第一次手势的那一下也是热的。
 - 触感由 `LEMHapticsEnabled()` 控制，即全局开关与“触感反馈”同时打开；关闭时 `LEMHapticsPlayTap()` 直接返回，不建生成器也不准备。
 - 生产日志不记录触感，只有加载时的 `ApelinLoaded`。
@@ -60,7 +60,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 ## 接入与 hooks
 
 - `SBIconScrollView` 的 `initWithFrame:` 钩子、`SBHIconManager` 的 `rootFolderControllerViewWillAppear:` 钩子负责发现并 attach scroll view；启动 2 秒后再全窗口扫一次，覆盖钩子装上之前就已经建好的主屏。
-- `${PREFIX}` 里没有 Theos，钩子统一走 `lemon/LEMHook.m`：`MSHookMessageEx` 由 `dlsym` 解析，拿不到时退回 `method_setImplementation`；目标类没实现某个 selector 时，`LEMInstallHook` 沿继承链找到真正实现的类再挂。
+- `${PREFIX}` 里没有 Theos，钩子统一走 `fizz/LEMHook.m`：`MSHookMessageEx` 由 `dlsym` 解析，拿不到时退回 `method_setImplementation`；目标类没实现某个 selector 时，`LEMInstallHook` 沿继承链找到真正实现的类再挂。
 - `layoutSubviews` 只在 `SBIconScrollView` 自己实现它时才挂，避免把 `UIScrollView` 基类的实现挂给全系统。三个钩子共 7 位，每位只装一次，缺类时每 0.1 秒重试，最多 50 次。
 
 ## 日志
