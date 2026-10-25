@@ -11,9 +11,9 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Pops the badges of one icon in step with its ripple beat: the same duration
-/// and the same delay the icon itself got, so each badge puffs up like a bubble
-/// and bursts as its icon comes to rest. Called by the ripple for every icon it
-/// animates.
+/// and the same delay the icon itself got, so each badge grows while it fades out
+/// and the last one is gone as its icon comes to rest. Called by the ripple for
+/// every icon it animates.
 void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay);
 
 /// Clears the badge value of every leaf icon and settles the views popped above.
@@ -22,7 +22,8 @@ void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInte
 void LEMBadgeClearAll(void);
 
 /// YES when at least one leaf icon carries a badge right now, so the next clear
-/// has something to wipe. Read by the spread to pick the haptic variant.
+/// has something to wipe. Read by the spread to know whether any badge will
+/// fade out, and so whether the tap is due.
 BOOL LEMBadgeHasBadges(void);
 
 /// Installs the badge hooks: the reuse resets of the badge view, the gate that

@@ -58,7 +58,6 @@ for ARCH in $ARCHS; do
           -framework UIKit \
           -framework CoreGraphics \
           -framework QuartzCore \
-          -framework CoreHaptics \
           -o "$OBJ_DIR/$TWEAK_NAME-$ARCH.dylib" \
           $OBJECTS
     SLICES="$SLICES $OBJ_DIR/$TWEAK_NAME-$ARCH.dylib"
@@ -107,9 +106,6 @@ PREFS_ENTRY_DIR="$STAGE_DIR$PREFIX/Library/PreferenceLoader/Preferences"
 mkdir -p "$LIB_DIR" "$STAGE_DIR/DEBIAN" "$PREFS_BUNDLE_DIR" "$PREFS_ENTRY_DIR"
 cp "$OBJ_DIR/$TWEAK_NAME.dylib" "$LIB_DIR/$TWEAK_NAME.dylib"
 cp "$SRC_DIR/$TWEAK_NAME.plist" "$LIB_DIR/$TWEAK_NAME.plist"
-for PATTERN in "$TWEAK_NAME.ahap" "${TWEAK_NAME}Cleared.ahap"; do
-    cp "$SRC_DIR/$PATTERN" "$LIB_DIR/$PATTERN"
-done
 cp "$OBJ_DIR/$PREFS_NAME" "$PREFS_BUNDLE_DIR/$PREFS_NAME"
 cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
 cp "$PREF_SRC_DIR/Lemon.plist" "$PREFS_ENTRY_DIR/Lemon.plist"
@@ -123,7 +119,7 @@ Maintainer: $PACKAGE_AUTHOR
 Author: $PACKAGE_AUTHOR
 Section: Tweaks
 Depends: firmware (>= 15.0), preferenceloader.top | preferenceloader
-Description: Two-finger spread gesture for the home screen: the icons ripple outwards, every app badge is cleared and kept cleared, and a custom haptic pattern follows the ripple.
+Description: Two-finger spread gesture for the home screen: the icons ripple outwards, every app badge grows out and fades away and is kept cleared, and one system tap marks the moment they are gone.
 EOF
 
 echo "==> packaging"

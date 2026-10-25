@@ -402,9 +402,8 @@ NSTimeInterval LEMIconRippleRun(UIView *hostView) {
                                 LEMRippleDuration, delay);
         LEMRippleAddTranslation(icon.layer, LEMRippleTranslationKeyY, offset.y, startShare,
                                 LEMRippleDuration, delay);
-        // The badge of the icon rides the same beat: it puffs up like a bubble
-        // and bursts as the icon comes to rest, so the last one is gone as the
-        // wave settles.
+        // The badge of the icon rides the same beat: it grows while it fades out
+        // and is gone as the icon comes to rest, as the wave settles.
         LEMBadgePopWithRipple(icon, LEMRippleDuration, delay);
         animated++;
     }

@@ -123,13 +123,22 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 static NSUInteger gSpreadGeneration = 0;
 
 static void LEMRunSpread(UIView *hostView) {
-    // The haptic variant is chosen before the ripple starts: badges on the home
-    // screen mean the clear is queued, and that variant ends with the cut and
-    // the low thud for the wipe.
+    // Badges on the home screen mean bubbles will burst, and the one tap Lemon
+    // still plays marks the moment the last of them is gone.
     BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
-    LEMHapticsPlaySpread(clearingBadges);
     NSUInteger generation = ++gSpreadGeneration;
     NSTimeInterval settle = LEMIconRippleRun(hostView);
+    if (clearingBadges && settle > 0) {
+        // The farthest bubble is gone exactly as the wave settles, so the tap
+        // lands there; a spread that took over in the meantime fires its own.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(settle * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+                           if (generation != gSpreadGeneration) {
+                               return;
+                           }
+                           LEMHapticsPlayTap();
+                       });
+    }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + LEMClearMargin) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
                        // A newer spread has taken over since: it clears once its
