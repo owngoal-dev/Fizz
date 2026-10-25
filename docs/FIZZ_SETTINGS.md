@@ -36,14 +36,24 @@
 
 App 打开会取回自己的角标数字，退到后台时又会把这个数字重新上报一次，所以清空之后它们仍会尝试把旧值写回来，这也是“角标维持”存在的理由。打开“角标维持”时，与清除前完全相同的值被丢弃，App 真有新消息、或者用户把消息读完导致的数字变化都照常生效；关闭“角标维持”时不再写新的基线，已经清掉的角标不会因此回来，但 App 下一次上报的数字会直接显示出来。重新打开时恢复记录，抑制表里的旧记录继续生效。
 
-## 文案
+## 文案与本地化
 
-- banner 标题 `Fizz`，副标题“双指外扩，角标随图标一起散开”。
-- banner 开关行“启用”。
-- 唯一分组没有标题（`groupSpecifierWithName:@""`），footer 沿用原“角标”分组的文案：App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。
+面板代码里不放任何中文字面量：所有可见文字都在 `fizz/prefs/<lang>.lproj/Localizable.strings`，代码里只留英文兜底值。
+
+| 键 | 英文（`en.lproj`） | 简体中文（`zh-Hans.lproj`） |
+| --- | --- | --- |
+| `enabled` | Enable | 启用 |
+| `haptics` | Haptics | 触感反馈 |
+| `keep_cleared` | Keep Cleared | 角标维持 |
+| `banner_subtitle` | Spread two fingers to send the badges out with the icons | 双指外扩，角标随图标一起散开 |
+| `badges_footer` | Apps republish their badges … the old number may come back. | App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。 |
+
+- 查找走 `FIZZLocalizedString(key, fallback)`：对 `[NSBundle bundleForClass:FIZZPrefsRootListController]` 调 `localizedStringForKey:value:table:@"Localizable"`。不能用 `NSLocalizedString`，它查的是 Settings 主 bundle，拿不到面板自己的资源。
+- `Info.plist` 的 `CFBundleDevelopmentRegion` 是 `en`；系统语言既不是英文也不是简体中文时落到英文兜底。
+- 唯一分组没有标题（`groupSpecifierWithName:@""`），footer 用 `badges_footer`。这段话必须指名“角标维持”，因为同一个分组里现在有两个开关，不能再说“本项”。
+- 产品名 `Fizz`（banner 标题、面板标题、设置入口、包名）不翻译；设置入口名写在 `fizz/prefs/Fizz.plist` 的 `label` 里。
 - 原“手势”分组的标题和 footer（“双指外扩清除所有角标。”）已删除，那句话改由 banner 副标题承担。
-- 开关“触感反馈”。
-- 开关“角标维持”，键仍是 `KeepCleared`，改名不改键，已保存的设置不受影响。
+- 开关“角标维持”只改显示名，键仍是 `KeepCleared`，已保存的设置不受影响。
 
 ## 实现要点
 

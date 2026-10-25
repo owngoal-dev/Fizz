@@ -1,0 +1,13 @@
+/*
+   Localizable.strings (English)
+   Fizz
+
+   Fallback language. Values here are what the pane shows when the system
+   language is not Chinese.
+*/
+
+"enabled" = "Enable";
+"haptics" = "Haptics";
+"keep_cleared" = "Keep Cleared";
+"banner_subtitle" = "Spread two fingers to send the badges out with the icons";
+"badges_footer" = "Apps republish their badges when they open or move to the background. While “Keep Cleared” is on, a republished count that matches the cleared one is ignored and a new count still shows; while it is off, the old number may come back.";

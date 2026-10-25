@@ -113,6 +113,9 @@ cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
 cp "$PREF_SRC_DIR/icon.png" "$PREF_SRC_DIR/icon@2x.png" "$PREF_SRC_DIR/icon@3x.png" "$PREFS_BUNDLE_DIR/"
 cp "$PREF_SRC_DIR/banner.png" "$PREF_SRC_DIR/banner@2x.png" "$PREF_SRC_DIR/banner@3x.png" "$PREFS_BUNDLE_DIR/"
 cp "$PREF_SRC_DIR/Fizz.plist" "$PREFS_ENTRY_DIR/Fizz.plist"
+for LPROJ in "$PREF_SRC_DIR"/*.lproj; do
+    cp -R "$LPROJ" "$PREFS_BUNDLE_DIR/"
+done
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF
 Package: $PACKAGE_ID

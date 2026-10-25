@@ -47,6 +47,18 @@ static const NSInteger FIZZSwitchCellType = 6;
 @interface FIZZPrefsRootListController : PSListController
 @end
 
+// Every visible string lives in the pane's own bundle, so the system language
+// decides what is shown. NSLocalizedString cannot be used here: it looks in the
+// main bundle, which is Settings, not this pane.
+static NSString *FIZZLocalizedString(NSString *key, NSString *fallback) {
+    static NSBundle *bundle;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        bundle = [NSBundle bundleForClass:[FIZZPrefsRootListController class]];
+    });
+    return [bundle localizedStringForKey:key value:fallback table:@"Localizable"];
+}
+
 #pragma mark - Banner
 
 // The pane's own bundle holds the artwork. ImageIO is used directly instead of
@@ -142,7 +154,7 @@ static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeigh
 
     _subtitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     _subtitleLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
-    _subtitleLabel.text = @"双指外扩，角标随图标一起散开";
+    _subtitleLabel.text = FIZZLocalizedString(@"banner_subtitle", @"Spread two fingers to send the badges out with the icons");
     _subtitleLabel.adjustsFontSizeToFitWidth = YES;
     _subtitleLabel.minimumScaleFactor = 0.8;
     [_card addSubview:_subtitleLabel];
@@ -157,7 +169,7 @@ static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeigh
     // Same font as the row titles in the list below, so the switch row reads as
     // one of them rather than as a smaller caption.
     _enabledLabel.font = [UIFont systemFontOfSize:17.0 weight:UIFontWeightRegular];
-    _enabledLabel.text = @"启用";
+    _enabledLabel.text = FIZZLocalizedString(@"enabled", @"Enable");
     [_card addSubview:_enabledLabel];
 
     _enabledSwitch = [[UISwitch alloc] initWithFrame:CGRectZero];
@@ -337,15 +349,20 @@ static UITableView *FIZZFindTableView(UIView *view) {
 - (NSArray *)specifiers {
     if (!_specifiers) {
         // One group, no title: the banner already says what this page is about,
-        // so only the badge footer needs to stay.
+        // so only the badge footer needs to stay. The footer names the row it
+        // talks about, since the group holds more than one switch now.
         PSSpecifier *rows = [PSSpecifier groupSpecifierWithName:@""];
-        [rows setProperty:@"App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，"
-                          @"新数字照常显示；关闭后旧数字可能再次出现。"
+        [rows setProperty:FIZZLocalizedString(@"badges_footer",
+                                              @"Apps republish their badges when they open or move to the background. "
+                                              @"While “Keep Cleared” is on, a republished count that matches the cleared "
+                                              @"one is ignored and a new count still shows; while it is off, the old "
+                                              @"number may come back.")
                  forKey:@"footerText"];
 
         _specifiers = [@[
-            rows, [self switchNamed:@"触感反馈" key:FIZZPreferencesHapticsKey],
-            [self switchNamed:@"角标维持" key:FIZZPreferencesKeepClearedKey]
+            rows, [self switchNamed:FIZZLocalizedString(@"haptics", @"Haptics") key:FIZZPreferencesHapticsKey],
+            [self switchNamed:FIZZLocalizedString(@"keep_cleared", @"Keep Cleared")
+                          key:FIZZPreferencesKeepClearedKey]
         ] mutableCopy];
     }
     return _specifiers;

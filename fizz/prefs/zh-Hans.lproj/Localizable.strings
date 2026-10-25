@@ -1,0 +1,10 @@
+/*
+   Localizable.strings (Simplified Chinese)
+   Fizz
+*/
+
+"enabled" = "启用";
+"haptics" = "触感反馈";
+"keep_cleared" = "角标维持";
+"banner_subtitle" = "双指外扩，角标随图标一起散开";
+"badges_footer" = "App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。";
