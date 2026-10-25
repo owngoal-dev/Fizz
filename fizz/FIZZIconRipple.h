@@ -32,9 +32,4 @@ void FIZZIconRippleEndFollow(BOOL animated);
 /// long the whole wave takes, or 0 when no icon was animated.
 NSTimeInterval FIZZIconRippleRun(UIView *hostView);
 
-/// How long after the wave starts the last badge is gone, from the settle time
-/// FIZZIconRippleRun returned. The bubbles fade out over half the beat, so this
-/// comes well before the wave ends.
-NSTimeInterval FIZZIconRippleBadgeFinish(NSTimeInterval settle);
-
 NS_ASSUME_NONNULL_END

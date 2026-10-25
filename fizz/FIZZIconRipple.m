@@ -412,12 +412,3 @@ NSTimeInterval FIZZIconRippleRun(UIView *hostView) {
 
     return animated > 0 ? FIZZRippleDuration + FIZZRippleMaximumDelay : 0;
 }
-
-NSTimeInterval FIZZIconRippleBadgeFinish(NSTimeInterval settle) {
-    if (settle <= 0) {
-        return 0;
-    }
-    // The last badge starts at the longest delay and fades for a share of the
-    // beat, which is that much before the icons have finished returning.
-    return settle - FIZZRippleDuration * (1.0 - FIZZBadgePopBeatShare);
-}

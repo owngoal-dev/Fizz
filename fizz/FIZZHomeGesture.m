@@ -123,21 +123,22 @@ static void FIZZSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 static NSUInteger gSpreadGeneration = 0;
 
 static void FIZZRunSpread(UIView *hostView) {
-    // Badges on the home screen mean bubbles will burst, and the one tap Fizz
-    // still plays marks the moment the last of them is gone.
+    // Badges on the home screen mean bubbles will burst, which is what tells the
+    // one impact Fizz plays apart from the one a plain spread gets.
     BOOL clearingBadges = FIZZFeatureEnabled() && FIZZBadgeHasBadges();
     NSUInteger generation = ++gSpreadGeneration;
     NSTimeInterval settle = FIZZIconRippleRun(hostView);
-    NSTimeInterval tapAt = FIZZIconRippleBadgeFinish(settle);
-    if (clearingBadges && settle > 0) {
-        // The last bubble is gone a share of the beat before the wave settles, and
-        // that is where the tap lands; a spread that took over fires its own.
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(tapAt * NSEC_PER_SEC)),
+    if (settle > 0) {
+        // The impact marks the instant the icons land back in place, and stops
+        // there: a spread that took over fires its own.
+        FIZZHapticSettleKind kind = clearingBadges ? FIZZHapticSettleKindCleared
+                                                   : FIZZHapticSettleKindEmpty;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(settle * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
                            if (generation != gSpreadGeneration) {
                                return;
                            }
-                           FIZZHapticsPlayTap();
+                           FIZZHapticsPlaySettle(kind);
                        });
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + FIZZClearMargin) * NSEC_PER_SEC)),
