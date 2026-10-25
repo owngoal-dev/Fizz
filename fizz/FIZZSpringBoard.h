@@ -1,5 +1,5 @@
 //
-//  LEMSpringBoard.h
+//  FIZZSpringBoard.h
 //  Fizz
 //
 //  The SpringBoard classes Fizz reaches by name. SpringBoard ships no headers,

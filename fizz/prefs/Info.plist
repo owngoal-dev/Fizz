@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>FizzPrefs</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.lemon.ripple.prefs</string>
+	<string>com.fizz.ripple.prefs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
@@ -17,6 +17,6 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSPrincipalClass</key>
-	<string>LEMPrefsRootListController</string>
+	<string>FIZZPrefsRootListController</string>
 </dict>
 </plist>

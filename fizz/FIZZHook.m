@@ -1,24 +1,24 @@
 //
-//  LEMHook.m
+//  FIZZHook.m
 //  Fizz
 //
 
-#import "LEMHook.h"
+#import "FIZZHook.h"
 
 #import <dlfcn.h>
 
-typedef void (*LEMHookMessageExFunction)(Class, SEL, IMP, IMP *);
+typedef void (*FIZZHookMessageExFunction)(Class, SEL, IMP, IMP *);
 
-static LEMHookMessageExFunction LEMHookMessageExFunctionPointer(void) {
-    static LEMHookMessageExFunction function = NULL;
+static FIZZHookMessageExFunction FIZZHookMessageExFunctionPointer(void) {
+    static FIZZHookMessageExFunction function = NULL;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        function = (LEMHookMessageExFunction)dlsym(RTLD_DEFAULT, "MSHookMessageEx");
+        function = (FIZZHookMessageExFunction)dlsym(RTLD_DEFAULT, "MSHookMessageEx");
     });
     return function;
 }
 
-BOOL LEMClassOwnsSelector(Class cls, SEL selector) {
+BOOL FIZZClassOwnsSelector(Class cls, SEL selector) {
     if (!cls || !selector) {
         return NO;
     }
@@ -37,19 +37,19 @@ BOOL LEMClassOwnsSelector(Class cls, SEL selector) {
     return found;
 }
 
-Class LEMHookOwner(Class cls, SEL selector) {
+Class FIZZHookOwner(Class cls, SEL selector) {
     Class current = cls;
-    while (current && !LEMClassOwnsSelector(current, selector)) {
+    while (current && !FIZZClassOwnsSelector(current, selector)) {
         current = class_getSuperclass(current);
     }
     return current;
 }
 
-BOOL LEMInstallHook(Class cls, SEL selector, IMP replacement, IMP *original) {
+BOOL FIZZInstallHook(Class cls, SEL selector, IMP replacement, IMP *original) {
     if (!cls || !selector || !replacement) {
         return NO;
     }
-    Class owner = LEMHookOwner(cls, selector);
+    Class owner = FIZZHookOwner(cls, selector);
     if (!owner) {
         return NO;
     }
@@ -57,7 +57,7 @@ BOOL LEMInstallHook(Class cls, SEL selector, IMP replacement, IMP *original) {
     if (!method) {
         return NO;
     }
-    LEMHookMessageExFunction hook = LEMHookMessageExFunctionPointer();
+    FIZZHookMessageExFunction hook = FIZZHookMessageExFunctionPointer();
     if (hook) {
         hook(owner, selector, replacement, original);
     } else if (original) {

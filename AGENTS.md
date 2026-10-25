@@ -33,8 +33,10 @@
 
 ## Fizz 构建与验证
 
-- 插件对外名是 Fizz。工程文件夹 `Lemon`、包标识 `com.lemon.ripple`（连同设置域、os_log 子系统、动画 key、`LEM` 符号前缀）是历史标识，改写显示名时不跟着改；产物是 `Fizz.dylib`、过滤器 `Fizz.plist`、`FizzPrefs.bundle` 和设置入口 `Fizz.plist`。
+- 插件名、包标识、设置域、os_log 子系统、动画 key 与 `FIZZ` 符号前缀全部是 Fizz；只有工程文件夹 `Lemon` 是 Apelin 分配的、不再更改的历史名字。产物是 `Fizz.dylib`、过滤器 `Fizz.plist`、`FizzPrefs.bundle` 和设置入口 `Fizz.plist`。
 - 本仓库通过 Apelin 的 external 构建工作区构建，入口固定在 `apelin/build.sh`，由 Apelin 的 `build` 工具带 `APELIN_PACKAGE_DIR` 调用；不要引入 Theos，也不要安装 Theos。
-- 脚本编译 `fizz/*.m`，再单独编译设置面板（`fizz/prefs/LEMPrefsRootListController.m` 与共享的 `fizz/LEMPreferences.m`，`-bundle -undefined dynamic_lookup`），roothide 只出 `arm64e`，rootless 出 `arm64 arm64e`，最后写出一个 `.deb`（不再有 AHAP 资源，触感只用 UIKit 自带的 `UIImpactFeedbackGenerator`）。
+- 脚本编译 `fizz/*.m`，再单独编译设置面板（`fizz/prefs/FIZZPrefsRootListController.m` 与共享的 `fizz/FIZZPreferences.m`，`-bundle -undefined dynamic_lookup`），roothide 只出 `arm64e`，rootless 出 `arm64 arm64e`，最后写出一个 `.deb`（不再有 AHAP 资源，触感只用 UIKit 自带的 `UIImpactFeedbackGenerator`）。
 - 构建通过后按 `build` → `install` → `confirm_loaded`（SpringBoard，需要 respring）的顺序确认加载。自动化只做到这里：手势、角标清空和设置开关的“第一次”效果留给用户手动触发并观察，agent 不为自检主动做会改变设备状态的操作。
+- 设置面板图标是 `fizz/prefs/icon.png`（29）、`icon@2x.png`（58）、`icon@3x.png`（87），全部由 `scripts/icon/FIZZIconGen.m` 从 1024 母图 `artwork/Fizz-icon-1024.png` 用 `kCACornerCurveContinuous` 遮罩生成。母图保留在仓库里；要改图标就改生成器重新生成，不要手改小图。
+- 本机不能直接运行 ad-hoc 签名的可执行文件（会被 `Killed: 9`），签名时要带 `platform-application`、`com.apple.private.security.no-container`、`get-task-allow` 权限。
 - 生产构建只有 `ApelinLoaded` 一行 os_log，没有日志文件，也不再有 postinst；需要临时排查时再加英语 os_log，问题解决后删除。

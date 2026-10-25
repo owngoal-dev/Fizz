@@ -1,5 +1,5 @@
 //
-//  LEMHaptics.m
+//  FIZZHaptics.m
 //  Fizz
 //
 //  One system impact and nothing else. The tap is played at the instant the last
@@ -9,9 +9,9 @@
 //  and prepared again after every play, so the next gesture finds it ready.
 //
 
-#import "LEMHaptics.h"
+#import "FIZZHaptics.h"
 
-#import "LEMPreferences.h"
+#import "FIZZPreferences.h"
 
 #import <UIKit/UIKit.h>
 
@@ -19,18 +19,18 @@ static UIImpactFeedbackGenerator *gGenerator = nil;
 
 // The generator belongs to the main queue, like every other UIKit object, and is
 // only ever reached from there.
-static UIImpactFeedbackGenerator *LEMHapticsGenerator(void) {
+static UIImpactFeedbackGenerator *FIZZHapticsGenerator(void) {
     if (!gGenerator) {
         gGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
     }
     return gGenerator;
 }
 
-BOOL LEMHapticsPlayTap(void) {
-    if (!LEMHapticsEnabled()) {
+BOOL FIZZHapticsPlayTap(void) {
+    if (!FIZZHapticsEnabled()) {
         return NO;
     }
-    UIImpactFeedbackGenerator *generator = LEMHapticsGenerator();
+    UIImpactFeedbackGenerator *generator = FIZZHapticsGenerator();
     [generator impactOccurred];
     // Armed again right away, so a second spread inside the tail of this one does
     // not wait for the hardware to wake up.
@@ -38,9 +38,9 @@ BOOL LEMHapticsPlayTap(void) {
     return YES;
 }
 
-void LEMHapticsPrewarm(void) {
-    if (!LEMHapticsEnabled()) {
+void FIZZHapticsPrewarm(void) {
+    if (!FIZZHapticsEnabled()) {
         return;
     }
-    [LEMHapticsGenerator() prepare];
+    [FIZZHapticsGenerator() prepare];
 }

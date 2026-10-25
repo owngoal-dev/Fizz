@@ -1,5 +1,5 @@
 //
-//  LEMPrefsRootListController.m
+//  FIZZPrefsRootListController.m
 //  Fizz
 //
 //  The Settings pane of Fizz. It holds three switches and nothing else: the
@@ -16,7 +16,7 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-#import "LEMPreferences.h"
+#import "FIZZPreferences.h"
 
 @interface PSSpecifier : NSObject
 + (instancetype)preferenceSpecifierNamed:(NSString *)name
@@ -42,12 +42,12 @@
 @end
 
 // PSCellType: PSSwitchCell = 6.
-static const NSInteger LEMSwitchCellType = 6;
+static const NSInteger FIZZSwitchCellType = 6;
 
-@interface LEMPrefsRootListController : PSListController
+@interface FIZZPrefsRootListController : PSListController
 @end
 
-@implementation LEMPrefsRootListController
+@implementation FIZZPrefsRootListController
 
 - (instancetype)init {
     self = [super init];
@@ -65,7 +65,7 @@ static const NSInteger LEMSwitchCellType = 6;
                                                                set:@selector(setPreferenceValue:specifier:)
                                                                get:@selector(readPreferenceValue:)
                                                             detail:nil
-                                                              cell:LEMSwitchCellType
+                                                              cell:FIZZSwitchCellType
                                                               edit:nil];
     [specifier setProperty:key forKey:@"key"];
     return specifier;
@@ -82,9 +82,9 @@ static const NSInteger LEMSwitchCellType = 6;
                     forKey:@"footerText"];
 
         _specifiers = [@[
-            gestures, [self switchNamed:@"启用" key:LEMPreferencesEnabledKey],
-            [self switchNamed:@"触感反馈" key:LEMPreferencesHapticsKey], badges,
-            [self switchNamed:@"角标维持" key:LEMPreferencesKeepClearedKey]
+            gestures, [self switchNamed:@"启用" key:FIZZPreferencesEnabledKey],
+            [self switchNamed:@"触感反馈" key:FIZZPreferencesHapticsKey], badges,
+            [self switchNamed:@"角标维持" key:FIZZPreferencesKeepClearedKey]
         ] mutableCopy];
     }
     return _specifiers;
@@ -92,7 +92,7 @@ static const NSInteger LEMSwitchCellType = 6;
 
 - (id)readPreferenceValue:(PSSpecifier *)specifier {
     NSString *key = [specifier propertyForKey:@"key"];
-    return @(LEMPreferencesGetBool(key, YES));
+    return @(FIZZPreferencesGetBool(key, YES));
 }
 
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
@@ -101,8 +101,8 @@ static const NSInteger LEMSwitchCellType = 6;
         return;
     }
     CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef) @([value boolValue]),
-                             (__bridge CFStringRef)LEMPreferencesDomain);
-    CFPreferencesAppSynchronize((__bridge CFStringRef)LEMPreferencesDomain);
+                             (__bridge CFStringRef)FIZZPreferencesDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)FIZZPreferencesDomain);
 }
 
 @end

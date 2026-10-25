@@ -1,5 +1,5 @@
 //
-//  LEMState.m
+//  FIZZState.m
 //  Fizz
 //
 //  Fizz keeps its state in <jbroot>/var/mobile/Library/Fizz, with the plain
@@ -8,18 +8,18 @@
 //  image, the same way on roothide and rootful layouts.
 //
 
-#import "LEMState.h"
+#import "FIZZState.h"
 
 #import <dlfcn.h>
 
-static NSString *const LEMStateDirectoryName = @"Fizz";
+static NSString *const FIZZStateDirectoryName = @"Fizz";
 
-static NSString *LEMJBRootPath(void) {
+static NSString *FIZZJBRootPath(void) {
     static NSString *path = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         Dl_info info;
-        if (dladdr((const void *)LEMJBRootPath, &info) == 0 || info.dli_fname == NULL) {
+        if (dladdr((const void *)FIZZJBRootPath, &info) == 0 || info.dli_fname == NULL) {
             return;
         }
         NSString *current = [NSString stringWithUTF8String:info.dli_fname];
@@ -34,23 +34,23 @@ static NSString *LEMJBRootPath(void) {
     return path;
 }
 
-static NSArray<NSString *> *LEMStateDirectoryCandidates(void) {
+static NSArray<NSString *> *FIZZStateDirectoryCandidates(void) {
     NSMutableArray<NSString *> *candidates = [NSMutableArray array];
-    NSString *jbroot = LEMJBRootPath();
+    NSString *jbroot = FIZZJBRootPath();
     if (jbroot.length > 0) {
         [candidates addObject:[jbroot stringByAppendingPathComponent:@"var/mobile/Library/Fizz"]];
     }
     [candidates addObject:@"/var/mobile/Library/Fizz"];
-    [candidates addObject:[NSTemporaryDirectory() stringByAppendingPathComponent:LEMStateDirectoryName]];
+    [candidates addObject:[NSTemporaryDirectory() stringByAppendingPathComponent:FIZZStateDirectoryName]];
     return candidates;
 }
 
-static NSString *LEMStateDirectory(void) {
+static NSString *FIZZStateDirectory(void) {
     static NSString *directory = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         NSFileManager *manager = [NSFileManager defaultManager];
-        for (NSString *candidate in LEMStateDirectoryCandidates()) {
+        for (NSString *candidate in FIZZStateDirectoryCandidates()) {
             BOOL created = [manager createDirectoryAtPath:candidate
                               withIntermediateDirectories:YES
                                                attributes:nil
@@ -64,9 +64,9 @@ static NSString *LEMStateDirectory(void) {
     return directory;
 }
 
-static NSArray<NSString *> *LEMLegacyStatePaths(NSString *name) {
+static NSArray<NSString *> *FIZZLegacyStatePaths(NSString *name) {
     NSMutableArray<NSString *> *paths = [NSMutableArray array];
-    NSString *jbroot = LEMJBRootPath();
+    NSString *jbroot = FIZZJBRootPath();
     if (jbroot.length > 0) {
         NSString *directory = [jbroot stringByAppendingPathComponent:@"var/log/lemon"];
         [paths addObject:[directory stringByAppendingPathComponent:name]];
@@ -75,11 +75,11 @@ static NSArray<NSString *> *LEMLegacyStatePaths(NSString *name) {
     return paths;
 }
 
-NSDictionary *LEMStateRead(NSString *name) {
+NSDictionary *FIZZStateRead(NSString *name) {
     if (name.length == 0) {
         return nil;
     }
-    NSString *directory = LEMStateDirectory();
+    NSString *directory = FIZZStateDirectory();
     if (directory.length > 0) {
         NSString *path = [directory stringByAppendingPathComponent:name];
         NSDictionary *stored = [NSDictionary dictionaryWithContentsOfFile:path];
@@ -87,21 +87,21 @@ NSDictionary *LEMStateRead(NSString *name) {
             return stored;
         }
     }
-    for (NSString *legacyPath in LEMLegacyStatePaths(name)) {
+    for (NSString *legacyPath in FIZZLegacyStatePaths(name)) {
         NSDictionary *stored = [NSDictionary dictionaryWithContentsOfFile:legacyPath];
         if (!stored) {
             continue;
         }
         // Older builds wrote here; carry the file over so the first launch after
         // an upgrade does not lose what was already recorded.
-        LEMStateWrite(name, stored);
+        FIZZStateWrite(name, stored);
         return stored;
     }
     return nil;
 }
 
-BOOL LEMStateWrite(NSString *name, NSDictionary *contents) {
-    NSString *directory = LEMStateDirectory();
+BOOL FIZZStateWrite(NSString *name, NSDictionary *contents) {
+    NSString *directory = FIZZStateDirectory();
     if (name.length == 0 || directory.length == 0) {
         return NO;
     }

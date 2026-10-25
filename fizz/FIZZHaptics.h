@@ -1,5 +1,5 @@
 //
-//  LEMHaptics.h
+//  FIZZHaptics.h
 //  Fizz
 //
 //  The only haptic Fizz has left: one system impact that marks the badge
@@ -13,11 +13,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// Plays one system impact as the tap for the bubbles going away. Call on the
 /// main queue. Returns NO when the haptics switch is off or the device has no
 /// haptics hardware.
-BOOL LEMHapticsPlayTap(void);
+BOOL FIZZHapticsPlayTap(void);
 
 /// Wakes the feedback generator ahead of the first spread, so the tap does not
 /// pay the warm-up delay. Called when the home screen appears; safe to call more
 /// than once.
-void LEMHapticsPrewarm(void);
+void FIZZHapticsPrewarm(void);
 
 NS_ASSUME_NONNULL_END

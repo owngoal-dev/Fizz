@@ -1,5 +1,5 @@
 //
-//  LEMLog.h
+//  FIZZLog.h
 //  Fizz
 //
 //  Fizz emits one line in production: the marker the Apelin loader watches to
@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Emits `ApelinLoaded <buildID>` on the com.lemon.ripple os_log subsystem.
-void LEMLogLoadedMarker(const char *buildID);
+/// Emits `ApelinLoaded <buildID>` on the com.fizz.ripple os_log subsystem.
+void FIZZLogLoadedMarker(const char *buildID);
 
 NS_ASSUME_NONNULL_END

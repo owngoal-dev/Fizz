@@ -5,7 +5,7 @@
 
 set -eu
 
-PACKAGE_ID="com.lemon.ripple"
+PACKAGE_ID="com.fizz.ripple"
 PACKAGE_NAME="Fizz"
 PACKAGE_VERSION="0.1.0"
 PACKAGE_AUTHOR="Lessica <82flex@gmail.com>"
@@ -74,7 +74,7 @@ ldid -S "$OBJ_DIR/$TWEAK_NAME.dylib"
 # The Settings pane is a bundle loaded into Settings.app. PSListController and
 # PSSpecifier stay unresolved here and are bound when Settings loads the pane,
 # so the build needs no private framework at link time. The preference domain
-# and defaults are shared with the tweak through LEMPreferences.m.
+# and defaults are shared with the tweak through FIZZPreferences.m.
 PREF_SLICES=""
 for ARCH in $ARCHS; do
     echo "==> compiling preferences $ARCH"
@@ -88,8 +88,8 @@ for ARCH in $ARCHS; do
           -framework Foundation \
           -framework UIKit \
           -o "$OBJ_DIR/$PREFS_NAME-$ARCH" \
-          "$PREF_SRC_DIR/LEMPrefsRootListController.m" \
-          "$SRC_DIR/LEMPreferences.m"
+          "$PREF_SRC_DIR/FIZZPrefsRootListController.m" \
+          "$SRC_DIR/FIZZPreferences.m"
     PREF_SLICES="$PREF_SLICES $OBJ_DIR/$PREFS_NAME-$ARCH"
 done
 
@@ -108,6 +108,7 @@ cp "$OBJ_DIR/$TWEAK_NAME.dylib" "$LIB_DIR/$TWEAK_NAME.dylib"
 cp "$SRC_DIR/$TWEAK_NAME.plist" "$LIB_DIR/$TWEAK_NAME.plist"
 cp "$OBJ_DIR/$PREFS_NAME" "$PREFS_BUNDLE_DIR/$PREFS_NAME"
 cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
+cp "$PREF_SRC_DIR/icon.png" "$PREF_SRC_DIR/icon@2x.png" "$PREF_SRC_DIR/icon@3x.png" "$PREFS_BUNDLE_DIR/"
 cp "$PREF_SRC_DIR/Fizz.plist" "$PREFS_ENTRY_DIR/Fizz.plist"
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF

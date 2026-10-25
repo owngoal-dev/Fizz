@@ -1,5 +1,5 @@
 //
-//  LEMState.h
+//  FIZZState.h
 //  Fizz
 //
 //  Persistent state shared across a respring. The files live outside the tweak
@@ -13,11 +13,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// Reads one property list from Fizz's state directory. A copy left by an
 /// earlier build in its old log directory is adopted on the first read.
 /// Returns nil when no copy exists.
-NSDictionary * _Nullable LEMStateRead(NSString *name);
+NSDictionary * _Nullable FIZZStateRead(NSString *name);
 
 /// Writes one property list atomically into Fizz's state directory, with file
 /// protection disabled so the state is readable before the first unlock.
 /// Returns NO when the file could not be written.
-BOOL LEMStateWrite(NSString *name, NSDictionary *contents);
+BOOL FIZZStateWrite(NSString *name, NSDictionary *contents);
 
 NS_ASSUME_NONNULL_END

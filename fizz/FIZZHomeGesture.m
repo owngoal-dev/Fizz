@@ -1,5 +1,5 @@
 //
-//  LEMHomeGesture.m
+//  FIZZHomeGesture.m
 //  Fizz
 //
 //  The home screen side of Fizz: a pinch recognizer on the home screen icon
@@ -8,12 +8,12 @@
 //  the page, and the ripple and badge clearing the spread triggers.
 //
 
-#import "LEMBadgeClearer.h"
-#import "LEMHaptics.h"
-#import "LEMIconRipple.h"
-#import "LEMHook.h"
-#import "LEMLog.h"
-#import "LEMPreferences.h"
+#import "FIZZBadgeClearer.h"
+#import "FIZZHaptics.h"
+#import "FIZZIconRipple.h"
+#import "FIZZHook.h"
+#import "FIZZLog.h"
+#import "FIZZPreferences.h"
 
 #import <UIKit/UIKit.h>
 #import <math.h>
@@ -24,10 +24,10 @@
 #endif
 
 // The clear runs just after the last icon and badge have come to rest.
-static const NSTimeInterval LEMClearMargin = 0.02;
+static const NSTimeInterval FIZZClearMargin = 0.02;
 // A pan that was already tracking a first touch is disabled for the duration of
 // the pinch; this bounds how long it can stay disabled if the pinch never ends.
-static const NSTimeInterval LEMPanWatchdogInterval = 3.0;
+static const NSTimeInterval FIZZPanWatchdogInterval = 3.0;
 
 static NSHashTable<UIScrollView *> *gAttachedScrollViews = nil;
 static NSMapTable<UIScrollView *, UIPinchGestureRecognizer *> *gPinchRecognizers = nil;
@@ -40,7 +40,7 @@ static NSHashTable<UIPanGestureRecognizer *> *gSuppressedPans = nil;
 // opens the search. Every pan up that chain is limited to a single touch, so a
 // spread cannot start any of them while each of them keeps working with one
 // finger exactly as before.
-static void LEMLimitToSingleTouch(UIGestureRecognizer *recognizer) {
+static void FIZZLimitToSingleTouch(UIGestureRecognizer *recognizer) {
     if (![recognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
         return;
     }
@@ -54,17 +54,17 @@ static void LEMLimitToSingleTouch(UIGestureRecognizer *recognizer) {
     pan.maximumNumberOfTouches = 1;
 }
 
-static void LEMConfigureScrollPan(UIView *view) {
+static void FIZZConfigureScrollPan(UIView *view) {
     UIView *current = view;
     for (NSUInteger depth = 0; current && depth < 12; depth++) {
         for (UIGestureRecognizer *recognizer in current.gestureRecognizers) {
-            LEMLimitToSingleTouch(recognizer);
+            FIZZLimitToSingleTouch(recognizer);
         }
         current = current.superview;
     }
 }
 
-static void LEMRestoreScrollPan(UIPinchGestureRecognizer *recognizer) {
+static void FIZZRestoreScrollPan(UIPinchGestureRecognizer *recognizer) {
     if (!gSuppressedPans) {
         return;
     }
@@ -79,7 +79,7 @@ static void LEMRestoreScrollPan(UIPinchGestureRecognizer *recognizer) {
 // the chain is therefore cancelled as soon as the spread begins, and brought
 // back when it ends; disabling a recognizer cancels it and stops the
 // deceleration.
-static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
+static void FIZZSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
     UIView *view = recognizer.view;
     if (!view) {
         return;
@@ -103,13 +103,13 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
     }
 
     __weak UIPinchGestureRecognizer *weakRecognizer = recognizer;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(LEMPanWatchdogInterval * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FIZZPanWatchdogInterval * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
                        UIPinchGestureRecognizer *strongRecognizer = weakRecognizer;
                        UIGestureRecognizerState state = strongRecognizer.state;
                        if (state == UIGestureRecognizerStatePossible ||
                            state == UIGestureRecognizerStateFailed) {
-                           LEMRestoreScrollPan(strongRecognizer);
+                           FIZZRestoreScrollPan(strongRecognizer);
                        }
                    });
 }
@@ -122,13 +122,13 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 // as the value goes.
 static NSUInteger gSpreadGeneration = 0;
 
-static void LEMRunSpread(UIView *hostView) {
+static void FIZZRunSpread(UIView *hostView) {
     // Badges on the home screen mean bubbles will burst, and the one tap Fizz
     // still plays marks the moment the last of them is gone.
-    BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
+    BOOL clearingBadges = FIZZFeatureEnabled() && FIZZBadgeHasBadges();
     NSUInteger generation = ++gSpreadGeneration;
-    NSTimeInterval settle = LEMIconRippleRun(hostView);
-    NSTimeInterval tapAt = LEMIconRippleBadgeFinish(settle);
+    NSTimeInterval settle = FIZZIconRippleRun(hostView);
+    NSTimeInterval tapAt = FIZZIconRippleBadgeFinish(settle);
     if (clearingBadges && settle > 0) {
         // The last bubble is gone a share of the beat before the wave settles, and
         // that is where the tap lands; a spread that took over fires its own.
@@ -137,10 +137,10 @@ static void LEMRunSpread(UIView *hostView) {
                            if (generation != gSpreadGeneration) {
                                return;
                            }
-                           LEMHapticsPlayTap();
+                           FIZZHapticsPlayTap();
                        });
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + LEMClearMargin) * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + FIZZClearMargin) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
                        // A newer spread has taken over since: it clears once its
                        // own wave has settled, so a spread that follows another
@@ -148,7 +148,7 @@ static void LEMRunSpread(UIView *hostView) {
                        if (generation != gSpreadGeneration) {
                            return;
                        }
-                       LEMBadgeClearAll();
+                       FIZZBadgeClearAll();
                    });
 }
 
@@ -164,13 +164,13 @@ static void LEMRunSpread(UIView *hostView) {
 // and the clear all belong to the release: a spread that is let go with the
 // span at or past the trigger distance gets the out-and-back wave and the
 // clear, and one that is let go short of it only returns the icons.
-static const CGFloat LEMSpreadTriggerSpan = 40.0;
+static const CGFloat FIZZSpreadTriggerSpan = 40.0;
 
 static BOOL gSpreadFollowing = NO;
 static CGFloat gSpreadBaseSpan = 0;
 static CGFloat gSpreadSpan = 0;
 
-static NSArray<UITouch *> *LEMSpreadLiveTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+static NSArray<UITouch *> *FIZZSpreadLiveTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
     NSMutableArray<UITouch *> *live = [NSMutableArray array];
     if (!event) {
         return live;
@@ -186,7 +186,7 @@ static NSArray<UITouch *> *LEMSpreadLiveTouches(UIPinchGestureRecognizer *recogn
     return live;
 }
 
-static CGFloat LEMSpreadSpan(UIPinchGestureRecognizer *recognizer, NSArray<UITouch *> *touches) {
+static CGFloat FIZZSpreadSpan(UIPinchGestureRecognizer *recognizer, NSArray<UITouch *> *touches) {
     UIView *view = recognizer.view;
     if (touches.count < 2 || !view) {
         return 0;
@@ -199,7 +199,7 @@ static CGFloat LEMSpreadSpan(UIPinchGestureRecognizer *recognizer, NSArray<UITou
 // Where the fingers were when they left the screen. The touch that ended is
 // still part of the set during touchesEnded, so the position it was lifted at is
 // measured instead of the last one from before the lift.
-static CGFloat LEMSpreadReleaseSpan(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+static CGFloat FIZZSpreadReleaseSpan(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
     UIView *view = recognizer.view;
     if (!view || !event) {
         return 0;
@@ -211,16 +211,16 @@ static CGFloat LEMSpreadReleaseSpan(UIPinchGestureRecognizer *recognizer, UIEven
         }
         [touches addObject:touch];
     }
-    return LEMSpreadSpan(recognizer, touches);
+    return FIZZSpreadSpan(recognizer, touches);
 }
 
 // The gesture is over: either the fingers were let go with the span at the
 // trigger distance, which starts the wave and the clear, or they let go short of
 // it and the icons only go back where they came from. A cancelled gesture never
 // counts, however far it got.
-static void LEMSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released) {
+static void FIZZSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released) {
     if (!gSpreadFollowing) {
-        LEMRestoreScrollPan(recognizer);
+        FIZZRestoreScrollPan(recognizer);
         return;
     }
     gSpreadFollowing = NO;
@@ -229,65 +229,65 @@ static void LEMSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released)
     if (released) {
         // A gesture whose touches were never measured has no span to compare;
         // the recognizer's own scale is then the only evidence there is.
-        reached = gSpreadSpan > 0 ? (gSpreadSpan - gSpreadBaseSpan) >= LEMSpreadTriggerSpan
+        reached = gSpreadSpan > 0 ? (gSpreadSpan - gSpreadBaseSpan) >= FIZZSpreadTriggerSpan
                                   : recognizer.scale > 1.02;
     }
     gSpreadBaseSpan = 0;
     gSpreadSpan = 0;
-    LEMRestoreScrollPan(recognizer);
+    FIZZRestoreScrollPan(recognizer);
 
-    if (reached && recognizer.view && LEMFeatureEnabled()) {
-        LEMRunSpread(recognizer.view);
+    if (reached && recognizer.view && FIZZFeatureEnabled()) {
+        FIZZRunSpread(recognizer.view);
         return;
     }
-    LEMIconRippleEndFollow(YES);
+    FIZZIconRippleEndFollow(YES);
 }
 
-static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
-    if (!LEMFeatureEnabled()) {
+static void FIZZSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+    if (!FIZZFeatureEnabled()) {
         return;
     }
     UIView *hostView = recognizer.view;
     if (!hostView) {
         return;
     }
-    NSArray<UITouch *> *touches = LEMSpreadLiveTouches(recognizer, event);
+    NSArray<UITouch *> *touches = FIZZSpreadLiveTouches(recognizer, event);
     if (touches.count < 2) {
-        LEMSpreadFinish(recognizer, YES);
+        FIZZSpreadFinish(recognizer, YES);
         return;
     }
-    CGFloat span = LEMSpreadSpan(recognizer, touches);
+    CGFloat span = FIZZSpreadSpan(recognizer, touches);
     if (!gSpreadFollowing) {
         gSpreadFollowing = YES;
         gSpreadBaseSpan = span;
         gSpreadSpan = span;
-        LEMSuppressScrollPan(recognizer);
-        LEMIconRippleBeginFollow(hostView);
+        FIZZSuppressScrollPan(recognizer);
+        FIZZIconRippleBeginFollow(hostView);
         return;
     }
     // The icons keep following the fingers past the trigger distance, so a
     // spread the user holds open stays where they left it instead of stopping
     // partway; the wave picks that position up when the fingers come off.
     gSpreadSpan = span;
-    LEMIconRippleUpdateFollow((span - gSpreadBaseSpan) / LEMSpreadTriggerSpan);
+    FIZZIconRippleUpdateFollow((span - gSpreadBaseSpan) / FIZZSpreadTriggerSpan);
 }
 
 // Measures the fingers itself before UIKit's own pinch threshold is reached.
-@interface LEMSpreadPinchRecognizer : UIPinchGestureRecognizer
+@interface FIZZSpreadPinchRecognizer : UIPinchGestureRecognizer
 @end
 
-@implementation LEMSpreadPinchRecognizer
+@implementation FIZZSpreadPinchRecognizer
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesBegan:touches withEvent:event];
-    LEMSpreadTrackTouches(self, event);
+    FIZZSpreadTrackTouches(self, event);
 }
 
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     // Measured before the pinch state machine runs, so a spread that already
     // crossed the trigger is not started a second time by the recognizer's own
     // Began.
-    LEMSpreadTrackTouches(self, event);
+    FIZZSpreadTrackTouches(self, event);
     [super touchesMoved:touches withEvent:event];
 }
 
@@ -295,46 +295,46 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
     // The position the fingers were lifted at decides whether the spread
     // counts, so it is measured before the recognizer's state machine can end
     // the gesture.
-    CGFloat span = LEMSpreadReleaseSpan(self, event);
+    CGFloat span = FIZZSpreadReleaseSpan(self, event);
     if (span > 0 && gSpreadFollowing) {
         gSpreadSpan = span;
     }
     [super touchesEnded:touches withEvent:event];
-    LEMSpreadTrackTouches(self, event);
+    FIZZSpreadTrackTouches(self, event);
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesCancelled:touches withEvent:event];
-    LEMSpreadFinish(self, NO);
+    FIZZSpreadFinish(self, NO);
 }
 
 - (void)reset {
     [super reset];
-    LEMSpreadFinish(self, NO);
+    FIZZSpreadFinish(self, NO);
 }
 
 @end
 
-@interface LEMGestureObserver : NSObject <UIGestureRecognizerDelegate>
+@interface FIZZGestureObserver : NSObject <UIGestureRecognizerDelegate>
 + (instancetype)sharedObserver;
 - (UIPinchGestureRecognizer *)installPinchRecognizerOnScrollView:(UIScrollView *)scrollView;
 - (void)handlePinch:(UIPinchGestureRecognizer *)recognizer;
 @end
 
-@implementation LEMGestureObserver
+@implementation FIZZGestureObserver
 
 + (instancetype)sharedObserver {
-    static LEMGestureObserver *observer = nil;
+    static FIZZGestureObserver *observer = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        observer = [[LEMGestureObserver alloc] init];
+        observer = [[FIZZGestureObserver alloc] init];
     });
     return observer;
 }
 
 - (UIPinchGestureRecognizer *)installPinchRecognizerOnScrollView:(UIScrollView *)scrollView {
     UIPinchGestureRecognizer *recognizer =
-        [[LEMSpreadPinchRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
+        [[FIZZSpreadPinchRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
     recognizer.delegate = self;
     recognizer.cancelsTouchesInView = NO;
     recognizer.delaysTouchesBegan = NO;
@@ -351,7 +351,7 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
 - (void)handlePinch:(UIPinchGestureRecognizer *)recognizer {
     // The global switch leaves the recognizer installed, so turning it back on
     // takes effect on the next gesture without a respring.
-    if (!LEMFeatureEnabled()) {
+    if (!FIZZFeatureEnabled()) {
         return;
     }
     UIGestureRecognizerState state = recognizer.state;
@@ -363,13 +363,13 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
             gSpreadFollowing = YES;
             gSpreadBaseSpan = 0;
             gSpreadSpan = 0;
-            LEMSuppressScrollPan(recognizer);
+            FIZZSuppressScrollPan(recognizer);
         }
     } else if (state == UIGestureRecognizerStateEnded) {
-        LEMSpreadFinish(recognizer, YES);
+        FIZZSpreadFinish(recognizer, YES);
     } else if (state == UIGestureRecognizerStateCancelled ||
                state == UIGestureRecognizerStateFailed) {
-        LEMSpreadFinish(recognizer, NO);
+        FIZZSpreadFinish(recognizer, NO);
     }
 }
 
@@ -377,20 +377,20 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
 
 #pragma mark - Scroll view attachment
 
-static void LEMAttachToScrollView(UIScrollView *scrollView);
+static void FIZZAttachToScrollView(UIScrollView *scrollView);
 
-static void LEMEnumerateViews(UIView *view, NSUInteger depth,
+static void FIZZEnumerateViews(UIView *view, NSUInteger depth,
                               void (^block)(UIView *candidate, NSUInteger depth)) {
     if (!view || depth > 8) {
         return;
     }
     block(view, depth);
     for (UIView *child in view.subviews) {
-        LEMEnumerateViews(child, depth + 1, block);
+        FIZZEnumerateViews(child, depth + 1, block);
     }
 }
 
-static void LEMAttachToExistingScrollViews(void) {
+static void FIZZAttachToExistingScrollViews(void) {
     if (!gAttachedScrollViews) {
         gAttachedScrollViews = [NSHashTable weakObjectsHashTable];
     }
@@ -400,17 +400,17 @@ static void LEMAttachToExistingScrollViews(void) {
             continue;
         }
         for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-            LEMEnumerateViews(window, 0, ^(UIView *candidate, NSUInteger depth) {
+            FIZZEnumerateViews(window, 0, ^(UIView *candidate, NSUInteger depth) {
                 if ([candidate isKindOfClass:[UIScrollView class]] &&
                     [NSStringFromClass([candidate class]) containsString:@"SBIconScrollView"]) {
-                    LEMAttachToScrollView((UIScrollView *)candidate);
+                    FIZZAttachToScrollView((UIScrollView *)candidate);
                 }
             });
         }
     }
 }
 
-static void LEMAttachToScrollView(UIScrollView *scrollView) {
+static void FIZZAttachToScrollView(UIScrollView *scrollView) {
     if (!scrollView) {
         return;
     }
@@ -425,46 +425,46 @@ static void LEMAttachToScrollView(UIScrollView *scrollView) {
     }
 
     UIPinchGestureRecognizer *recognizer =
-        [[LEMGestureObserver sharedObserver] installPinchRecognizerOnScrollView:scrollView];
+        [[FIZZGestureObserver sharedObserver] installPinchRecognizerOnScrollView:scrollView];
     [gPinchRecognizers setObject:recognizer forKey:scrollView];
     [gAttachedScrollViews addObject:scrollView];
-    LEMConfigureScrollPan(scrollView);
+    FIZZConfigureScrollPan(scrollView);
 }
 
 #pragma mark - Hooks
 
-static void (*LEMOriginalRootFolderViewWillAppear)(id, SEL, id) = NULL;
-static id (*LEMOriginalScrollViewInitWithFrame)(id, SEL, CGRect) = NULL;
-static void (*LEMOriginalScrollViewLayoutSubviews)(id, SEL) = NULL;
+static void (*FIZZOriginalRootFolderViewWillAppear)(id, SEL, id) = NULL;
+static id (*FIZZOriginalScrollViewInitWithFrame)(id, SEL, CGRect) = NULL;
+static void (*FIZZOriginalScrollViewLayoutSubviews)(id, SEL) = NULL;
 
-static void LEMHookedRootFolderViewWillAppear(id self, SEL _cmd, id controller) {
-    if (LEMOriginalRootFolderViewWillAppear) {
-        LEMOriginalRootFolderViewWillAppear(self, _cmd, controller);
+static void FIZZHookedRootFolderViewWillAppear(id self, SEL _cmd, id controller) {
+    if (FIZZOriginalRootFolderViewWillAppear) {
+        FIZZOriginalRootFolderViewWillAppear(self, _cmd, controller);
     }
     dispatch_async(dispatch_get_main_queue(), ^{
-        LEMAttachToExistingScrollViews();
-        LEMHapticsPrewarm();
+        FIZZAttachToExistingScrollViews();
+        FIZZHapticsPrewarm();
     });
 }
 
-static id LEMHookedScrollViewInitWithFrame(id self, SEL _cmd, CGRect frame) {
+static id FIZZHookedScrollViewInitWithFrame(id self, SEL _cmd, CGRect frame) {
     id scrollView = nil;
-    if (LEMOriginalScrollViewInitWithFrame) {
-        scrollView = LEMOriginalScrollViewInitWithFrame(self, _cmd, frame);
+    if (FIZZOriginalScrollViewInitWithFrame) {
+        scrollView = FIZZOriginalScrollViewInitWithFrame(self, _cmd, frame);
     }
     __weak id weakScrollView = scrollView;
     dispatch_async(dispatch_get_main_queue(), ^{
         id strongScrollView = weakScrollView;
         if ([strongScrollView isKindOfClass:[UIScrollView class]]) {
-            LEMAttachToScrollView((UIScrollView *)strongScrollView);
+            FIZZAttachToScrollView((UIScrollView *)strongScrollView);
         }
     });
     return scrollView;
 }
 
-static void LEMHookedScrollViewLayoutSubviews(id self, SEL _cmd) {
-    if (LEMOriginalScrollViewLayoutSubviews) {
-        LEMOriginalScrollViewLayoutSubviews(self, _cmd);
+static void FIZZHookedScrollViewLayoutSubviews(id self, SEL _cmd) {
+    if (FIZZOriginalScrollViewLayoutSubviews) {
+        FIZZOriginalScrollViewLayoutSubviews(self, _cmd);
     }
     if (![self isKindOfClass:[UIScrollView class]]) {
         return;
@@ -473,41 +473,41 @@ static void LEMHookedScrollViewLayoutSubviews(id self, SEL _cmd) {
     if (!gAttachedScrollViews || ![gAttachedScrollViews containsObject:scrollView]) {
         return;
     }
-    LEMConfigureScrollPan(scrollView);
+    FIZZConfigureScrollPan(scrollView);
     UIPinchGestureRecognizer *recognizer = [gPinchRecognizers objectForKey:scrollView];
     if (recognizer && ![scrollView.gestureRecognizers containsObject:recognizer]) {
         [scrollView addGestureRecognizer:recognizer];
     }
 }
 
-static const NSUInteger LEMGestureHookMaskComplete = 7;
+static const NSUInteger FIZZGestureHookMaskComplete = 7;
 static NSUInteger gGestureHookMask = 0;
 
-static void LEMInstallHooks(void) {
+static void FIZZInstallHooks(void) {
     Class iconManagerClass = objc_getClass("SBHIconManager");
     Class iconScrollViewClass = objc_getClass("SBIconScrollView");
 
     if (iconManagerClass && !(gGestureHookMask & 1) &&
-        LEMInstallHook(iconManagerClass, @selector(rootFolderControllerViewWillAppear:),
-                       (IMP)LEMHookedRootFolderViewWillAppear, (IMP *)&LEMOriginalRootFolderViewWillAppear)) {
+        FIZZInstallHook(iconManagerClass, @selector(rootFolderControllerViewWillAppear:),
+                       (IMP)FIZZHookedRootFolderViewWillAppear, (IMP *)&FIZZOriginalRootFolderViewWillAppear)) {
         gGestureHookMask |= 1;
     }
     if (iconScrollViewClass && !(gGestureHookMask & 2) &&
-        LEMClassOwnsSelector(iconScrollViewClass, @selector(initWithFrame:)) &&
-        LEMInstallHook(iconScrollViewClass, @selector(initWithFrame:), (IMP)LEMHookedScrollViewInitWithFrame,
-                       (IMP *)&LEMOriginalScrollViewInitWithFrame)) {
+        FIZZClassOwnsSelector(iconScrollViewClass, @selector(initWithFrame:)) &&
+        FIZZInstallHook(iconScrollViewClass, @selector(initWithFrame:), (IMP)FIZZHookedScrollViewInitWithFrame,
+                       (IMP *)&FIZZOriginalScrollViewInitWithFrame)) {
         gGestureHookMask |= 2;
     }
     // Hooking a superclass layoutSubviews would change every scroll view, so the
     // layout pass is only watched when the home screen scroll view owns it.
     if (iconScrollViewClass && !(gGestureHookMask & 4) &&
-        LEMClassOwnsSelector(iconScrollViewClass, @selector(layoutSubviews)) &&
-        LEMInstallHook(iconScrollViewClass, @selector(layoutSubviews), (IMP)LEMHookedScrollViewLayoutSubviews,
-                       (IMP *)&LEMOriginalScrollViewLayoutSubviews)) {
+        FIZZClassOwnsSelector(iconScrollViewClass, @selector(layoutSubviews)) &&
+        FIZZInstallHook(iconScrollViewClass, @selector(layoutSubviews), (IMP)FIZZHookedScrollViewLayoutSubviews,
+                       (IMP *)&FIZZOriginalScrollViewLayoutSubviews)) {
         gGestureHookMask |= 4;
     }
 
-    if (gGestureHookMask == LEMGestureHookMaskComplete) {
+    if (gGestureHookMask == FIZZGestureHookMaskComplete) {
         return;
     }
     static NSUInteger attempts = 0;
@@ -516,24 +516,24 @@ static void LEMInstallHooks(void) {
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-                       LEMInstallHooks();
+                       FIZZInstallHooks();
                    });
 }
 
-__attribute__((constructor)) static void LEMInitialize(void) {
-    LEMLogLoadedMarker(APELIN_BUILD_ID);
+__attribute__((constructor)) static void FIZZInitialize(void) {
+    FIZZLogLoadedMarker(APELIN_BUILD_ID);
 
     // The badge hooks have to be in place before SpringBoard builds its icon
     // model and restores the badges, which happens long before the first main
     // queue block runs. Installing them right here, on the loading thread, is
     // what lets the write gate drop a cleared count during launch.
-    LEMBadgeInstallWatchers();
+    FIZZBadgeInstallWatchers();
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        LEMInstallHooks();
+        FIZZInstallHooks();
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
-                           LEMAttachToExistingScrollViews();
+                           FIZZAttachToExistingScrollViews();
                        });
     });
 }

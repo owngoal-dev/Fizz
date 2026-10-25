@@ -1,5 +1,5 @@
 //
-//  LEMPreferences.h
+//  FIZZPreferences.h
 //  Fizz
 //
 //  Preferences shared by the SpringBoard tweak and the Settings pane. The pane
@@ -12,29 +12,29 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// The preferences domain, which is also the package identifier.
-extern NSString *const LEMPreferencesDomain;
+extern NSString *const FIZZPreferencesDomain;
 
 /// Global switch, defaulting to YES.
-extern NSString *const LEMPreferencesEnabledKey;
+extern NSString *const FIZZPreferencesEnabledKey;
 
 /// Keep-cleared switch, defaulting to YES.
-extern NSString *const LEMPreferencesKeepClearedKey;
+extern NSString *const FIZZPreferencesKeepClearedKey;
 
 /// Haptic feedback switch, defaulting to YES.
-extern NSString *const LEMPreferencesHapticsKey;
+extern NSString *const FIZZPreferencesHapticsKey;
 
 /// Reads one boolean, falling back to `fallback` when it was never written.
-BOOL LEMPreferencesGetBool(NSString *key, BOOL fallback);
+BOOL FIZZPreferencesGetBool(NSString *key, BOOL fallback);
 
 /// YES when the global switch is on.
-BOOL LEMFeatureEnabled(void);
+BOOL FIZZFeatureEnabled(void);
 
 /// YES when both the global switch and the keep-cleared switch are on. Only this
 /// layer drops the counts an application republishes after a clear.
-BOOL LEMBadgeSuppressionEnabled(void);
+BOOL FIZZBadgeSuppressionEnabled(void);
 
 /// YES when both the global switch and the haptics switch are on. The haptic
 /// pattern follows the gesture, so it is off whenever the gesture is.
-BOOL LEMHapticsEnabled(void);
+BOOL FIZZHapticsEnabled(void);
 
 NS_ASSUME_NONNULL_END
