@@ -127,13 +127,16 @@ static void FIZZRunSpread(UIView *hostView) {
     // one impact Fizz plays apart from the one a plain spread gets.
     BOOL clearingBadges = FIZZFeatureEnabled() && FIZZBadgeHasBadges();
     NSUInteger generation = ++gSpreadGeneration;
-    NSTimeInterval settle = FIZZIconRippleRun(hostView);
-    if (settle > 0) {
-        // The impact marks the instant the icons land back in place, and stops
-        // there: a spread that took over fires its own.
+    FIZZRippleTiming timing = FIZZIconRippleRun(hostView);
+    if (timing.touchdown > 0) {
+        // The impact marks the instant the icons are back on their places, which
+        // is where they read as landed: on the return leg each icon crosses its
+        // own position well before its overshoot tail runs out, so the wave's
+        // settle time would be late by that tail. A spread that took over fires
+        // its own impact.
         FIZZHapticSettleKind kind = clearingBadges ? FIZZHapticSettleKindCleared
                                                    : FIZZHapticSettleKindEmpty;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(settle * NSEC_PER_SEC)),
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timing.touchdown * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
                            if (generation != gSpreadGeneration) {
                                return;
@@ -141,7 +144,7 @@ static void FIZZRunSpread(UIView *hostView) {
                            FIZZHapticsPlaySettle(kind);
                        });
     }
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + FIZZClearMargin) * NSEC_PER_SEC)),
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((timing.settle + FIZZClearMargin) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
                        // A newer spread has taken over since: it clears once its
                        // own wave has settled, so a spread that follows another

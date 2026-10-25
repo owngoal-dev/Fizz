@@ -179,6 +179,44 @@ static void FIZZRippleSetLayerTranslation(CALayer *layer, CGPoint translation) {
     [CATransaction commit];
 }
 
+// One axis of a cubic bezier with its ends pinned at 0 and 1.
+static CGFloat FIZZRippleBezier(CGFloat s, CGFloat p1, CGFloat p2) {
+    CGFloat one = 1.0 - s;
+    return 3.0 * one * one * s * p1 + 3.0 * one * s * s * p2 + s * s * s;
+}
+
+// The fraction of a segment at which an ease-in-ease-out curve has travelled the
+// given share of its way. The keyframe animations are eased segment by segment
+// with kCAMediaTimingFunctionEaseInEaseOut, which is cubic-bezier(0.42, 0, 0.58,
+// 1); this inverts it, so a moment inside a segment can be worked out in seconds.
+static CGFloat FIZZRippleEaseInEaseOutInverse(CGFloat progress) {
+    CGFloat low = 0.0;
+    CGFloat high = 1.0;
+    for (NSUInteger step = 0; step < 24; step++) {
+        CGFloat mid = (low + high) * 0.5;
+        if (FIZZRippleBezier(mid, 0.0, 1.0) < progress) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    return FIZZRippleBezier((low + high) * 0.5, 0.42, 0.58);
+}
+
+// When an icon of the wave is back on its own place: on the return leg it swings
+// from the full offset through the starting point and on to the overshoot, so it
+// crosses home that share of the way into the segment.
+static NSTimeInterval FIZZRippleTouchdownTime(CGFloat startShare, NSTimeInterval delay) {
+    static CGFloat crossingShare = 0;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        crossingShare = FIZZRippleEaseInEaseOutInverse(1.0 / (1.0 + FIZZRippleSettleOvershoot));
+    });
+    CGFloat outTime = FIZZRippleOutKeyTime * (1.0 - startShare);
+    CGFloat settleTime = outTime + (1.0 - outTime) * FIZZRippleSettleKeyShare;
+    return delay + FIZZRippleDuration * (outTime + (settleTime - outTime) * crossingShare);
+}
+
 // Moves `layer` from `startShare` of `offset` out to `offset`, then back through
 // the starting point and onto it over `duration`.
 static void FIZZRippleAddTranslation(CALayer *layer, NSString *keyPath, CGFloat offset,
@@ -361,7 +399,8 @@ void FIZZIconRippleEndFollow(BOOL animated) {
     FIZZRippleResetFollowState();
 }
 
-NSTimeInterval FIZZIconRippleRun(UIView *hostView) {
+FIZZRippleTiming FIZZIconRippleRun(UIView *hostView) {
+    FIZZRippleTiming timing = {0, 0};
     // The follow leg ends here: from this point the wave animates the icons, and
     // the last position the spring left them in is where the wave starts.
     [[FIZZFollowDriver sharedDriver] stop];
@@ -371,10 +410,11 @@ NSTimeInterval FIZZIconRippleRun(UIView *hostView) {
     NSArray<UIView *> *icons = FIZZRipplePlaceIcons(hostView, offsets);
     if (icons.count == 0) {
         FIZZRippleResetFollowState();
-        return 0;
+        return timing;
     }
 
     NSUInteger animated = 0;
+    NSTimeInterval touchdown = 0;
     for (NSUInteger index = 0; index < icons.count; index++) {
         UIView *icon = icons[index];
         CGPoint offset = [offsets[index] CGPointValue];
@@ -405,10 +445,19 @@ NSTimeInterval FIZZIconRippleRun(UIView *hostView) {
         // The badge of the icon rides the same beat: it grows while it fades out
         // and is gone well before the icon comes to rest.
         FIZZBadgePopWithRipple(icon, FIZZRippleDuration, delay);
+        NSTimeInterval iconTouchdown = FIZZRippleTouchdownTime(startShare, delay);
+        if (iconTouchdown > touchdown) {
+            touchdown = iconTouchdown;
+        }
         animated++;
     }
 
     FIZZRippleResetFollowState();
 
-    return animated > 0 ? FIZZRippleDuration + FIZZRippleMaximumDelay : 0;
+    if (animated == 0) {
+        return timing;
+    }
+    timing.settle = FIZZRippleDuration + FIZZRippleMaximumDelay;
+    timing.touchdown = touchdown;
+    return timing;
 }

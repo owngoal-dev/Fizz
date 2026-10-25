@@ -13,9 +13,9 @@
 NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, FIZZHapticSettleKind) {
-    /// A spread with no badges to clear: one light tap as the icons land.
+    /// A spread with no badges to clear: one soft tap as the icons land.
     FIZZHapticSettleKindEmpty = 0,
-    /// A spread whose badges popped away: a heavier tap at the same instant.
+    /// A spread whose badges popped away: a rigid, crisper tap at the same instant.
     FIZZHapticSettleKindCleared = 1,
 };
 

@@ -7,9 +7,9 @@
 //  silent while the fingers are out and answers once it is over.
 //
 //  The difference between them is the style: a spread that cleared badges lands
-//  with a heavier impact than one that only rippled the icons. UIKit's feedback
-//  generators are the system taps; each is created once, kept alive and prepared
-//  again after every play, so the next gesture finds it ready.
+//  with a hard, crisp click, and one that only rippled the icons with a soft tap.
+//  UIKit's feedback generators are the system taps; each is created once, kept
+//  alive and prepared again after every play, so the next gesture finds it ready.
 //
 
 #import "FIZZHaptics.h"
@@ -27,9 +27,9 @@ static UIImpactFeedbackGenerator *FIZZHapticsGenerator(FIZZHapticSettleKind kind
     BOOL cleared = (kind == FIZZHapticSettleKindCleared);
     UIImpactFeedbackGenerator *generator = cleared ? gClearedGenerator : gEmptyGenerator;
     if (!generator) {
-        // Light is a short, crisp click; heavy is a solid thump that is clearly a
-        // different thing in the hand, which is what a burst of badges deserves.
-        UIImpactFeedbackStyle style = cleared ? UIImpactFeedbackStyleHeavy : UIImpactFeedbackStyleLight;
+        // Rigid is a hard, crisp click; soft is a quiet dull tap. A burst of
+        // badges gets the click, a spread that only moved the icons the tap.
+        UIImpactFeedbackStyle style = cleared ? UIImpactFeedbackStyleRigid : UIImpactFeedbackStyleSoft;
         generator = [[UIImpactFeedbackGenerator alloc] initWithStyle:style];
         if (cleared) {
             gClearedGenerator = generator;

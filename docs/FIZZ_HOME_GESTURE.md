@@ -43,11 +43,12 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 
 ## 触感反馈
 
-只在图标落回原位的那一刻震一下，用系统自带的 `UIImpactFeedbackGenerator`；有没有角标决定这一下的轻重，手势本身不震。
+只在图标落回原位的那一刻震一下，用系统自带的 `UIImpactFeedbackGenerator`；有没有角标决定这一下的手感，手势本身不震。
 
-- 触发条件：手势真的触发了涟漪（`FIZZIconRippleRun` 返回非 0），并且全局开关与“触感反馈”都打开。没到阈值就松开只回弹，不震。
-- 时机：`settle`（`FIZZRippleDuration` 0.5 秒 + 最多 0.1 秒延迟）就是最后一个图标正好停稳的时刻，`FIZZRunSpread` 用 `dispatch_after` 把这一下排在 `settle`，不再提前到气泡淡完的那一刻；清空数据仍在其后的 `settle + 0.02`（0.62 秒）。
-- 两种轻重：没有角标可清时 `FIZZHapticSettleKindEmpty`，用 `UIImpactFeedbackStyleLight`，一声干脆轻响；有角标、气泡在去路上炸掉时 `FIZZHapticSettleKindCleared`，用 `UIImpactFeedbackStyleHeavy`，同样一下但明显更实更重。两者都是单次 `impactOccurred`，没有自定义节奏。
+- 触发条件：手势真的触发了涟漪（`FIZZIconRippleRun` 返回的 `touchdown` 非 0），并且全局开关与“触感反馈”都打开。没到阈值就松开只回弹，不震。
+- 时机：`FIZZIconRippleRun` 现在返回 `FIZZRippleTiming`，含 `settle` 与 `touchdown` 两个时刻。触感排的是 `touchdown`——每个图标在回程里先穿过自己的原位、再冲出一小段过冲（`FIZZRippleSettleOvershoot = 0.06`）才停稳，穿过原位那一刻才是“落回”，`settle` 是过冲尾巴跑完的时刻，比它晚一百多毫秒，按 `settle` 排就会明显慢半拍。
+- `touchdown` 的算法：单图标的外扩段在小数上占 `FIZZRippleOutKeyTime × (1 − startShare)`，过冲点在 `outTime + (1 − outTime) × FIZZRippleSettleKeyShare`；这一段的值从整段位移走到 −6%，穿过 0 时走完了 1/1.06，用 `FIZZRippleEaseInEaseOutInverse` 对 `kCAMediaTimingFunctionEaseInEaseOut`（cubic-bezier(0.42, 0, 0.58, 1)）二分反解出对应的段内时间比例（约 0.833），再乘回动画时长加上该图标的延迟，取所有图标里最晚的一个。手指送出去的距离（`startShare`）越大，图标归位越早，这个值也跟着变。
+- 两种手感：没有角标可清时 `FIZZHapticSettleKindEmpty`，用 `UIImpactFeedbackStyleSoft`，一声闷而轻的轻响；有角标、气泡在去路上炸掉时 `FIZZHapticSettleKindCleared`，用 `UIImpactFeedbackStyleRigid`，同样一下但硬而脆。两者都是单次 `impactOccurred`，没有自定义节奏。
 - 轻重在松手那一刻决定：`clearingBadges = FIZZFeatureEnabled() && FIZZBadgeHasBadges()`，随后排队的那一下带的是这个值。
 - 连打不叠加：排队前记下本轮 `gSpreadGeneration`，到点时若已有新的一轮接管就放弃，由新一轮自己排它那一下，因此不会连响、也不会提前响。
 - `fizz/FIZZHaptics.m` 按 kind 各留一个生成器，第一次用哪个就建哪个，播完立刻 `prepare` 重新武装，下一次不用等硬件唤醒。
@@ -57,7 +58,7 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 
 ## 气泡消失
 
-徽章跟着涟漪的节拍一起走：`FIZZBadgePopWithRipple` 拿到和图标相同的延迟（最多 0.1 秒），时长只取图标的一半（`FIZZBadgePopBeatShare = 0.5`，0.25 秒）。每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的图标（延迟 0.1 秒）在 0.35 秒就淡完，比图标回位早，触感那一下落在图标停稳的 0.6 秒，数据清空在 0.62。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
+徽章跟着涟漪的节拍一起走：`FIZZBadgePopWithRipple` 拿到和图标相同的延迟（最多 0.1 秒），时长只取图标的一半（`FIZZBadgePopBeatShare = 0.5`，0.25 秒）。每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的图标（延迟 0.1 秒）在 0.35 秒就淡完，比图标归位早，触感那一下落在图标穿过原位的 0.44 秒，数据清空在落定后的 0.62。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
 
 ## 接入与 hooks
 
@@ -71,4 +72,4 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 
 ## 验证要点
 
-手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移，双指向外扩（即使两指中点往下走）也不会把搜索拉下来；手指按住不放时只有跟手，没有涟漪、没有触感、角标不清；松开时指距过阈值才扩散回位，图标收回时先越过原位一点点再落回，落回原位的那一刻手机震一下；没有角标时是干脆的一声轻响（`Light`），有角标、气泡炸掉时是明显更实的一声重响（`Heavy`），两者都在图标停稳的同一瞬间，气泡本身在 0.35 秒就淡完、不跟着震；指距没到阈值就松开只原样回弹（同样带一点越过原位的回弹），触感和角标都不动；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；单指下拉搜索、单指翻页照常；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停最后那一下、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
+手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移，双指向外扩（即使两指中点往下走）也不会把搜索拉下来；手指按住不放时只有跟手，没有涟漪、没有触感、角标不清；松开时指距过阈值才扩散回位，图标收回时先越过原位一点点再落回，穿过原位的那一刻手机震一下；没有角标时是闷轻的一声（`Soft`），有角标、气泡炸掉时是硬脆的一声（`Rigid`），两者都在图标穿过原位的同一瞬间，气泡本身在 0.35 秒就淡完、不跟着震；指距没到阈值就松开只原样回弹（同样带一点越过原位的回弹），触感和角标都不动；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；单指下拉搜索、单指翻页照常；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停最后那一下、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
