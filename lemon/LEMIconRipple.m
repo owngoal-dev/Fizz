@@ -32,6 +32,11 @@ static const CGFloat LEMRippleMaximumOffset = 26.0;
 static const NSTimeInterval LEMRippleDuration = 0.5;
 static const NSTimeInterval LEMRippleMaximumDelay = 0.1;
 static const CGFloat LEMRippleOutKeyTime = 0.42;
+// The return leg crosses the icon's starting point by a small share of the
+// offset and settles back onto it, so the tail of the ripple bounces instead of
+// stopping dead. The deepest point of that overshoot sits late in the return.
+static const CGFloat LEMRippleSettleOvershoot = 0.06;
+static const CGFloat LEMRippleSettleKeyShare = 0.72;
 static const NSUInteger LEMRippleMaximumDepth = 8;
 // How much of the full offset the fingers carry the icons before the wave takes
 // over; the wave finishes the outward leg from there. Past the trigger distance
@@ -44,7 +49,10 @@ static const CGFloat LEMRippleFollowLimitShare = 0.9;
 // to the fingers. Slightly underdamped on purpose.
 static const CGFloat LEMRippleSpringStiffness = 400.0;
 static const CGFloat LEMRippleSpringDamping = 28.0;
-static const NSTimeInterval LEMRippleReturnDuration = 0.18;
+// The release back to rest is sprung as well, and slightly underdamped, so an
+// icon passes its starting point by a little before it settles onto it.
+static const CGFloat LEMRippleReturnStiffness = 420.0;
+static const CGFloat LEMRippleReturnDamping = 21.0;
 
 static NSString *const LEMRippleTranslationKeyX = @"transform.translation.x";
 static NSString *const LEMRippleTranslationKeyY = @"transform.translation.y";
@@ -171,14 +179,17 @@ static void LEMRippleSetLayerTranslation(CALayer *layer, CGPoint translation) {
     [CATransaction commit];
 }
 
-// Moves `layer` from `startShare` of `offset` out to `offset` and back over
-// `duration`.
+// Moves `layer` from `startShare` of `offset` out to `offset`, then back through
+// the starting point and onto it over `duration`.
 static void LEMRippleAddTranslation(CALayer *layer, NSString *keyPath, CGFloat offset,
                                     CGFloat startShare, NSTimeInterval duration,
                                     NSTimeInterval delay) {
     CAKeyframeAnimation *animation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
-    animation.values = @[ @(offset * startShare), @(offset), @0.0 ];
-    animation.keyTimes = @[ @0.0, @(LEMRippleOutKeyTime * (1.0 - startShare)), @1.0 ];
+    CGFloat outTime = LEMRippleOutKeyTime * (1.0 - startShare);
+    CGFloat settleTime = outTime + (1.0 - outTime) * LEMRippleSettleKeyShare;
+    animation.values = @[ @(offset * startShare), @(offset),
+                          @(-offset * LEMRippleSettleOvershoot), @0.0 ];
+    animation.keyTimes = @[ @0.0, @(outTime), @(settleTime), @1.0 ];
     animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
     animation.duration = duration;
     animation.beginTime = CACurrentMediaTime() + delay;
@@ -316,6 +327,21 @@ void LEMIconRippleUpdateFollow(CGFloat progress) {
     [[LEMFollowDriver sharedDriver] start];
 }
 
+// Carries one axis of the translation from `from` back to rest through a spring,
+// so the icon overshoots its starting point by a little and settles onto it.
+static void LEMRippleAddSpringBack(CALayer *layer, NSString *keyPath, CGFloat from, NSString *key) {
+    CASpringAnimation *animation = [CASpringAnimation animationWithKeyPath:keyPath];
+    animation.fromValue = @(from);
+    animation.toValue = @0.0;
+    animation.mass = 1.0;
+    animation.stiffness = LEMRippleReturnStiffness;
+    animation.damping = LEMRippleReturnDamping;
+    animation.initialVelocity = 0.0;
+    // The settling time is only known once the spring is configured.
+    animation.duration = animation.settlingDuration;
+    [layer addAnimation:animation forKey:key];
+}
+
 void LEMIconRippleEndFollow(BOOL animated) {
     NSUInteger count = gFollowIcons.count;
     for (NSUInteger index = 0; index < count; index++) {
@@ -326,19 +352,11 @@ void LEMIconRippleEndFollow(BOOL animated) {
         if (!animated || hypot(current.x, current.y) < 0.5) {
             continue;
         }
-        // The release is short and eases out, so a spread that never crossed the
-        // trigger just lets the icons settle back instead of dropping them.
-        CAKeyframeAnimation *backX = [CAKeyframeAnimation animationWithKeyPath:LEMRippleTranslationKeyX];
-        backX.values = @[ @(current.x), @0.0 ];
-        backX.duration = LEMRippleReturnDuration;
-        backX.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
-        [layer addAnimation:backX forKey:LEMRippleReturnKeyX];
-
-        CAKeyframeAnimation *backY = [CAKeyframeAnimation animationWithKeyPath:LEMRippleTranslationKeyY];
-        backY.values = @[ @(current.y), @0.0 ];
-        backY.duration = LEMRippleReturnDuration;
-        backY.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
-        [layer addAnimation:backY forKey:LEMRippleReturnKeyY];
+        // The release springs back instead of easing back, so an icon that was
+        // carried partway out passes its starting point and settles onto it
+        // rather than stopping there.
+        LEMRippleAddSpringBack(layer, LEMRippleTranslationKeyX, current.x, LEMRippleReturnKeyX);
+        LEMRippleAddSpringBack(layer, LEMRippleTranslationKeyY, current.y, LEMRippleReturnKeyY);
     }
     LEMRippleResetFollowState();
 }

@@ -8,11 +8,13 @@
 
 两者并行时，双指外扩会把页面一起拖走；手指先后落下时还会出现“先单指拖动、再加第二指”的路径，这时 pan 已经在跑。
 
+同样的冲突还出现在下拉搜索上：打开搜索的 pan 挂在主屏更上层的视图（`SBIconScrollView` 的祖先链上），默认最多接受两根手指。双指外扩时两指的中点只要整体往下走，它就会进入识别、把搜索界面拉下来，因此它和页面 pan 一样要一起处理，不能只盯着图标 scroll view 自己那一个 pan。
+
 ## 处理方式
 
-- `LEMConfigureScrollPan` 把主屏 pan 的 `maximumNumberOfTouches` 限制为 1，双指接触不再触发 pan；configure 在 attach 时执行，并由 `SBIconScrollView` 的 `layoutSubviews` 钩子持续守住（只在值被改回时才重新设置）。
-- `LEMSuppressScrollPan` 在第二指落下、跟手开始时把 pan 置为 `NO`，用于取消“第二指落下前已经开始”的 pan 与惯性减速；`LEMRestoreScrollPan` 在手指松开、pinch `Ended`/`Cancelled`/`Failed` 时恢复，另有 3 秒看门狗防止 pan 被永久禁用。
-- 单指拖动不受影响：手势结束即恢复 pan，普通翻页仍由原 pan 处理。
+- `LEMConfigureScrollPan` 从 `SBIconScrollView` 起沿祖先链（最多 12 层，覆盖到 window）遍历每一个 `UIPanGestureRecognizer`，把 `maximumNumberOfTouches` 限制为 1；主屏页面 pan 和下拉搜索的 pan 一起被限制，双指接触不再能启动它们，单指行为完全不变。`minimumNumberOfTouches > 1` 的 pan 跳过：把最大值压到最小值以下会被 UIKit 拒绝，而需要多指才能开始的 pan 本来也不是要处理的单指下拉。configure 在 attach 时执行，并由 `SBIconScrollView` 的 `layoutSubviews` 钩子持续守住（只在值被改回时才重新设置）。
+- `LEMSuppressScrollPan` 在第二指落下、跟手开始时把祖先链上所有处于启用状态的 pan 置为 `NO`，用于取消“第二指落下前已经开始”的页面 pan、下拉搜索 pan 与惯性减速；`LEMRestoreScrollPan` 在手指松开、pinch `Ended`/`Cancelled`/`Failed` 时把它们逐个恢复，另有 3 秒看门狗防止 pan 被永久禁用。
+- 单指拖动不受影响：手势结束即恢复 pan，普通翻页与下拉搜索仍由原来的 pan 处理。
 - pinch recognizer 在跟手开始时读一次全局开关；关闭开关不会移除 recognizer，下一次手势就能重新生效，不需要 respring。
 
 ## 跟手与触发
@@ -25,7 +27,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 - 手指还按着的时候只有跟手，没有涟漪、没有触感、不清角标。
 - 触发只看松手那一刻：`touchesEnded` 先用 `LEMSpreadReleaseSpan` 量出抬指位置（此时被抬起的 `UITouch` 还在 `touchesForGestureRecognizer:` 里，位置是抬起点，不是抬手前最后一次移动的位置），再交回手势状态机。
 - 抬起时的指距比基线大 40pt 以上，就用 `LEMRunSpread` 起一波涟漪；`LEMIconRippleRun` 先读回图标当前所在位置作为动画起点，所以跟手到涟漪的交接没有跳变，外层再配角标清除。
-- 抬起时没有到阈值，只是 `LEMIconRippleEndFollow(YES)` 用 0.18 秒 ease-out 把图标送回原位，不起涟漪、不出触感、不清角标。
+- 抬起时没有到阈值，只是 `LEMIconRippleEndFollow(YES)` 用 `CASpringAnimation`（刚度 420、阻尼 21，略微欠阻尼）沿 x/y 各自把图标送回去：图标先越过原位一点点，再落回原位，收尾带一点弹性，而不是匀着停下；不起涟漪、不出触感、不清角标。
 - `Cancelled`/`Failed`/`reset` 一律按“不算数”处理，无论当时指距多远。
 
 ## 图标涟漪
@@ -33,7 +35,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 `LEMIconRippleRun` 由松手且指距过阈值时调用，内收手势不改数据也不做动画。
 
 - 锚点是 `SBIconScrollView` 所在 window 的中心；图标按“图标中心减锚点”的向量方向外移，位移量与距离成正比，最远图标移动 26pt。
-- 每个图标用两条 `CAKeyframeAnimation`（`transform.translation.x` / `.y`）走起点 → 偏移 → 0，关键时间点 0 / `0.42 × (1 − 起点占比)` / 1，`EaseInEaseOut`，总时长 0.5s；延迟按距离归一化后最多 0.1s，整体约 0.6s，视觉上从中间向外扩散。`fillMode` 设为 `kCAFillModeBackwards`，延迟期间图标停在起点，不会先弹回原位。
+- 每个图标用两条 `CAKeyframeAnimation`（`transform.translation.x` / `.y`）走起点 → 偏移 → 反向越过原位 → 0，关键时间点 0 / `0.42 × (1 − 起点占比)` / 该段之后 72% / 1，`EaseInEaseOut`，总时长 0.5s；反向那段是 `LEMRippleSettleOvershoot`（满程的 6%）的拖尾回弹，图标收回来时先往内多走一点再落回原位，尾段不会突然停住。延迟按距离归一化后最多 0.1s，整体约 0.6s，视觉上从中间向外扩散。`fillMode` 设为 `kCAFillModeBackwards`，延迟期间图标停在起点，不会先弹回原位。
 - 起点取图标此刻在屏幕上的位置（跟手阶段的 layer 平移，或上一波动画走到一半的位置），读完立刻把模型 `transform` 清零，因此动画本身仍然不依赖模型值；`transform` 带缩放或旋转（SpringBoard 自己在动）、隐藏、透明或不在窗口内的图标会被跳过。
 - 连续多次外扩不会打断上一波：新一波从图标当前位置接着往外再弹一次，同一对动画 key 直接替换旧动画；`LEMRunSpread` 带世代号，上一波排好的 `LEMBadgeClearAll()` 发现世代号已过期就直接放弃，清空只由最后一波在自己的涟漪落定后执行。
 - 递归收集时遇到类名含 `IconView` 的视图就停下，只让最外层的图标视图动，避免图标图片视图（`SBIconImageView`）被父子各推一次。
@@ -83,4 +85,4 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 
 ## 验证要点
 
-手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移；手指按住不放时只有跟手，没有涟漪、没有触感、角标不清；松开时指距过阈值才扩散回位、出触感，有角标可清时角标像气泡一样涨大后破掉，最后一批破完的同时补一下清脆的“咯噔”，没有角标时只有 0.62 秒的基础节奏；指距没到阈值就松开只原样回弹，触感和角标都不动；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
+手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移，双指向外扩（即使两指中点往下走）也不会把搜索拉下来；手指按住不放时只有跟手，没有涟漪、没有触感、角标不清；松开时指距过阈值才扩散回位、出触感，图标收回时先越过原位一点点再落回，有角标可清时角标像气泡一样涨大后破掉，最后一批破完的同时补一下清脆的“咯噔”，没有角标时只有 0.62 秒的基础节奏；指距没到阈值就松开只原样回弹（同样带一点越过原位的回弹），触感和角标都不动；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；单指下拉搜索、单指翻页照常；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。

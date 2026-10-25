@@ -35,48 +35,72 @@ static NSHashTable<UIPanGestureRecognizer *> *gSuppressedPans = nil;
 
 #pragma mark - Pan arbitration
 
-// The home screen scroll view pans with one or two fingers by default, so a
-// two-finger spread also drags the icon page. Limiting the pan to a single
-// touch keeps every two-finger contact out of it.
-static void LEMConfigureScrollPan(UIPanGestureRecognizer *pan) {
-    if (pan && pan.maximumNumberOfTouches != 1) {
-        pan.maximumNumberOfTouches = 1;
+// The home screen answers a two-finger contact in more than one place: the icon
+// scroll view pans with it, and the views above it carry the pull-down that
+// opens the search. Every pan up that chain is limited to a single touch, so a
+// spread cannot start any of them while each of them keeps working with one
+// finger exactly as before.
+static void LEMLimitToSingleTouch(UIGestureRecognizer *recognizer) {
+    if (![recognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
+        return;
+    }
+    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)recognizer;
+    // A pan that needs several touches to begin is left as it is: lowering its
+    // maximum below its minimum is refused, and it cannot be the one-finger
+    // pull-down this is aimed at.
+    if (pan.minimumNumberOfTouches > 1 || pan.maximumNumberOfTouches == 1) {
+        return;
+    }
+    pan.maximumNumberOfTouches = 1;
+}
+
+static void LEMConfigureScrollPan(UIView *view) {
+    UIView *current = view;
+    for (NSUInteger depth = 0; current && depth < 12; depth++) {
+        for (UIGestureRecognizer *recognizer in current.gestureRecognizers) {
+            LEMLimitToSingleTouch(recognizer);
+        }
+        current = current.superview;
     }
 }
 
 static void LEMRestoreScrollPan(UIPinchGestureRecognizer *recognizer) {
-    UIView *view = recognizer.view;
-    if (![view isKindOfClass:[UIScrollView class]]) {
+    if (!gSuppressedPans) {
         return;
     }
-    UIPanGestureRecognizer *pan = ((UIScrollView *)view).panGestureRecognizer;
-    if (!pan || !gSuppressedPans || ![gSuppressedPans containsObject:pan]) {
-        return;
+    for (UIPanGestureRecognizer *pan in gSuppressedPans.allObjects) {
+        pan.enabled = YES;
     }
-    [gSuppressedPans removeObject:pan];
-    pan.enabled = YES;
+    [gSuppressedPans removeAllObjects];
 }
 
 // A pan that started before the second finger landed keeps tracking its first
-// touch. Disabling the recognizer cancels it and stops the deceleration; it is
-// re-enabled when the pinch ends.
+// touch, and while it does the page moves and the search slides in. Every pan on
+// the chain is therefore cancelled as soon as the spread begins, and brought
+// back when it ends; disabling a recognizer cancels it and stops the
+// deceleration.
 static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
     UIView *view = recognizer.view;
-    if (![view isKindOfClass:[UIScrollView class]]) {
-        return;
-    }
-    UIPanGestureRecognizer *pan = ((UIScrollView *)view).panGestureRecognizer;
-    if (!pan || !pan.enabled) {
+    if (!view) {
         return;
     }
     if (!gSuppressedPans) {
         gSuppressedPans = [NSHashTable weakObjectsHashTable];
     }
-    if ([gSuppressedPans containsObject:pan]) {
+    UIView *current = view;
+    for (NSUInteger depth = 0; current && depth < 12; depth++) {
+        for (UIGestureRecognizer *recognizer in current.gestureRecognizers) {
+            if (![recognizer isKindOfClass:[UIPanGestureRecognizer class]] || !recognizer.enabled) {
+                continue;
+            }
+            recognizer.enabled = NO;
+            [gSuppressedPans addObject:(UIPanGestureRecognizer *)recognizer];
+        }
+        current = current.superview;
+    }
+    if (gSuppressedPans.count == 0) {
         return;
     }
-    pan.enabled = NO;
-    [gSuppressedPans addObject:pan];
 
     __weak UIPinchGestureRecognizer *weakRecognizer = recognizer;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(LEMPanWatchdogInterval * NSEC_PER_SEC)),
@@ -394,7 +418,7 @@ static void LEMAttachToScrollView(UIScrollView *scrollView) {
         [[LEMGestureObserver sharedObserver] installPinchRecognizerOnScrollView:scrollView];
     [gPinchRecognizers setObject:recognizer forKey:scrollView];
     [gAttachedScrollViews addObject:scrollView];
-    LEMConfigureScrollPan(scrollView.panGestureRecognizer);
+    LEMConfigureScrollPan(scrollView);
 }
 
 #pragma mark - Hooks
@@ -439,7 +463,7 @@ static void LEMHookedScrollViewLayoutSubviews(id self, SEL _cmd) {
     if (!gAttachedScrollViews || ![gAttachedScrollViews containsObject:scrollView]) {
         return;
     }
-    LEMConfigureScrollPan(scrollView.panGestureRecognizer);
+    LEMConfigureScrollPan(scrollView);
     UIPinchGestureRecognizer *recognizer = [gPinchRecognizers objectForKey:scrollView];
     if (recognizer && ![scrollView.gestureRecognizers containsObject:recognizer]) {
         [scrollView addGestureRecognizer:recognizer];
