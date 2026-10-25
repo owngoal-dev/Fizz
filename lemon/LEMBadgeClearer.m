@@ -44,6 +44,7 @@
 #import "LEMState.h"
 
 #import <QuartzCore/QuartzCore.h>
+#import <math.h>
 #import <objc/runtime.h>
 #import <os/lock.h>
 
@@ -143,9 +144,12 @@ static void (*LEMOriginalBadgePrepareForReuse)(id, SEL) = NULL;
 static void (*LEMOriginalBadgeConfigure)(id, SEL, id, id) = NULL;
 static void (*LEMOriginalBadgeConfigureAnimated)(id, SEL, id, id, id) = NULL;
 
+static void LEMBadgeRemoveBurstRing(UIView *badge);
+
 static void LEMBadgeResetView(UIView *view) {
     [view.layer removeAnimationForKey:LEMBadgePopKey];
     [view.layer removeAnimationForKey:LEMBadgePopScaleKey];
+    LEMBadgeRemoveBurstRing(view);
     view.hidden = NO;
     view.alpha = 1.0;
 }
@@ -307,7 +311,17 @@ static const CGFloat LEMBadgePopOpacityValues[] = { 1.0, 1.0, 0.92, 0.0 };
 static const CGFloat LEMBadgePopOpacityTimes[] = { 0.0, 0.50, 0.82, 1.0 };
 static const CGFloat LEMBadgeBurstRingStart = 0.82;
 
-static NSMutableArray<CAShapeLayer *> *gBurstRings = nil;
+static NSMapTable<UIView *, CAShapeLayer *> *gBadgeRings = nil;
+
+// A badge keeps its ring in the superview, so a second pop must first take the
+// ring of the first one away instead of stacking another one on top of it.
+static void LEMBadgeRemoveBurstRing(UIView *badge) {
+    CAShapeLayer *ring = [gBadgeRings objectForKey:badge];
+    if (ring) {
+        [ring removeFromSuperlayer];
+        [gBadgeRings removeObjectForKey:badge];
+    }
+}
 
 static NSArray<NSNumber *> *LEMBadgeScaledValues(const CGFloat *values, NSUInteger count,
                                                  CGFloat baseScale) {
@@ -343,6 +357,10 @@ static void LEMBadgeAddBurstRing(UIView *badge, NSTimeInterval beginTime,
     if (!container || duration <= 0) {
         return;
     }
+    if (!gBadgeRings) {
+        gBadgeRings = [NSMapTable weakToStrongObjectsMapTable];
+    }
+    LEMBadgeRemoveBurstRing(badge);
     CAShapeLayer *ring = [CAShapeLayer layer];
     ring.frame = badge.frame;
     CGRect bounds = ring.bounds;
@@ -377,20 +395,34 @@ static void LEMBadgeAddBurstRing(UIView *badge, NSTimeInterval beginTime,
     scale.removedOnCompletion = NO;
     [ring addAnimation:scale forKey:LEMBadgeBurstRingKey];
 
-    if (!gBurstRings) {
-        gBurstRings = [NSMutableArray array];
+    if (!gBadgeRings) {
+        gBadgeRings = [NSMapTable weakToStrongObjectsMapTable];
     }
-    [gBurstRings addObject:ring];
+    [gBadgeRings setObject:ring forKey:badge];
+}
+
+// Where the badge is on screen right now. A badge that is popped again while its
+// first bubble is still in the air continues from that size and that opacity
+// instead of snapping back to full.
+static CATransform3D LEMBadgePresentationTransform(UIView *badge) {
+    CALayer *presentation = badge.layer.presentationLayer;
+    return presentation ? presentation.transform : badge.layer.transform;
+}
+
+static CGFloat LEMBadgePresentationOpacity(UIView *badge) {
+    CALayer *presentation = badge.layer.presentationLayer;
+    return presentation ? (CGFloat)presentation.opacity : (CGFloat)badge.layer.opacity;
 }
 
 static void LEMBadgePopView(UIView *badge, NSTimeInterval duration, NSTimeInterval beginTime) {
     // A badge that already carries a scale keeps it, so the puff multiplies what
     // is there instead of snapping the view back to 1.
-    CATransform3D transform = badge.layer.transform;
+    CATransform3D transform = LEMBadgePresentationTransform(badge);
     CGFloat baseScale = sqrt(transform.m11 * transform.m11 + transform.m12 * transform.m12);
     if (!(baseScale > 0.01)) {
         baseScale = 1.0;
     }
+    CGFloat startOpacity = fmin(fmax(LEMBadgePresentationOpacity(badge), 0.0), 1.0);
 
     CAKeyframeAnimation *pop = [CAKeyframeAnimation animationWithKeyPath:@"transform.scale"];
     pop.values = LEMBadgeScaledValues(LEMBadgePopScaleValues, 4, baseScale);
@@ -405,7 +437,11 @@ static void LEMBadgePopView(UIView *badge, NSTimeInterval duration, NSTimeInterv
     // The bubble stays solid for most of the beat, so the burst reads as the film
     // breaking instead of the badge fading away.
     CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
-    fade.values = LEMBadgeNumbers(LEMBadgePopOpacityValues, 4);
+    if (startOpacity < 0.999) {
+        fade.values = @[ @(startOpacity), @(startOpacity), @(startOpacity * 0.92), @0.0 ];
+    } else {
+        fade.values = LEMBadgeNumbers(LEMBadgePopOpacityValues, 4);
+    }
     fade.keyTimes = LEMBadgeNumbers(LEMBadgePopOpacityTimes, 4);
     fade.duration = duration;
     fade.beginTime = beginTime;
@@ -458,10 +494,10 @@ static void LEMBadgeSettlePopped(void) {
         }
     }
     [gPoppingBadgeViews removeAllObjects];
-    for (CAShapeLayer *ring in gBurstRings) {
+    for (CAShapeLayer *ring in gBadgeRings.objectEnumerator) {
         [ring removeFromSuperlayer];
     }
-    [gBurstRings removeAllObjects];
+    [gBadgeRings removeAllObjects];
 }
 
 #pragma mark - Data

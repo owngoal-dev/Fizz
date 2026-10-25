@@ -3,7 +3,8 @@
 //  Lemon
 //
 //  The home screen side of Lemon: a pinch recognizer on the home screen icon
-//  scroll view, the pan arbitration that keeps a two-finger spread from dragging
+//  scroll view that follows the fingers before UIKit's own threshold is
+//  reached, the pan arbitration that keeps a two-finger spread from dragging
 //  the page, and the ripple and badge clearing the spread triggers.
 //
 
@@ -15,6 +16,7 @@
 #import "LEMPreferences.h"
 
 #import <UIKit/UIKit.h>
+#import <math.h>
 #import <objc/runtime.h>
 
 #ifndef APELIN_BUILD_ID
@@ -91,21 +93,154 @@ static void LEMSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
 #pragma mark - Spread
 
 // The spread ripples the icons outwards from the screen center and back, and the
-// badges of those icons fade with the same beat. Clearing the badge data is left
+// badges of those icons pop with the same beat. Clearing the badge data is left
 // until the wave has settled, because SpringBoard drops the badge views as soon
 // as the value goes.
-static void LEMRunSpread(UIPinchGestureRecognizer *recognizer) {
+static NSUInteger gSpreadGeneration = 0;
+
+static void LEMRunSpread(UIView *hostView) {
     // The haptic variant is chosen before the ripple starts: badges on the home
     // screen mean the clear is queued, and that variant ends with the cut and
     // the low thud for the wipe.
     BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
     LEMHapticsPlaySpread(clearingBadges);
-    NSTimeInterval settle = LEMIconRippleRun(recognizer.view);
+    NSUInteger generation = ++gSpreadGeneration;
+    NSTimeInterval settle = LEMIconRippleRun(hostView);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((settle + LEMClearMargin) * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
+                       // A newer spread has taken over since: it clears once its
+                       // own wave has settled, so a spread that follows another
+                       // one closely is never cut short by this clear.
+                       if (generation != gSpreadGeneration) {
+                           return;
+                       }
                        LEMBadgeClearAll();
                    });
 }
+
+#pragma mark - Finger following
+
+// The pinch recognizer only reports Began once UIKit's own threshold is crossed,
+// which is well after the fingers have started to open, so everything before
+// that used to be lost and the wave only began once the spread was already
+// under way. The touches are measured directly instead: from the second finger
+// landing, the span between the two fingers carries the icons outwards, and
+// crossing the trigger distance hands that movement over to the wave, which
+// continues from wherever the icons are.
+static const CGFloat LEMSpreadTriggerSpan = 40.0;
+
+static BOOL gSpreadFollowing = NO;
+static BOOL gSpreadTriggered = NO;
+static CGFloat gSpreadBaseSpan = 0;
+
+static NSArray<UITouch *> *LEMSpreadLiveTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+    NSMutableArray<UITouch *> *live = [NSMutableArray array];
+    if (!event) {
+        return live;
+    }
+    // The recognizer's own touches: they are the ones it accepted, so a third
+    // finger that it ignored cannot be measured by mistake.
+    for (UITouch *touch in [event touchesForGestureRecognizer:recognizer]) {
+        if (touch.phase == UITouchPhaseEnded || touch.phase == UITouchPhaseCancelled) {
+            continue;
+        }
+        [live addObject:touch];
+    }
+    return live;
+}
+
+static CGFloat LEMSpreadSpan(UIPinchGestureRecognizer *recognizer, NSArray<UITouch *> *touches) {
+    UIView *view = recognizer.view;
+    if (touches.count < 2 || !view) {
+        return 0;
+    }
+    CGPoint first = [touches[0] locationInView:view];
+    CGPoint second = [touches[1] locationInView:view];
+    return hypot(first.x - second.x, first.y - second.y);
+}
+
+static void LEMSpreadFinish(UIPinchGestureRecognizer *recognizer) {
+    // A spread that never crossed the trigger lets the icons settle back; one
+    // that did leaves its wave running and is already followed by the icons
+    // themselves.
+    if (gSpreadFollowing && !gSpreadTriggered) {
+        LEMIconRippleEndFollow(YES);
+    }
+    gSpreadFollowing = NO;
+    gSpreadTriggered = NO;
+    gSpreadBaseSpan = 0;
+    LEMRestoreScrollPan(recognizer);
+}
+
+static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+    if (!LEMFeatureEnabled()) {
+        return;
+    }
+    UIView *hostView = recognizer.view;
+    if (!hostView) {
+        return;
+    }
+    NSArray<UITouch *> *touches = LEMSpreadLiveTouches(recognizer, event);
+    if (touches.count < 2) {
+        LEMSpreadFinish(recognizer);
+        return;
+    }
+    CGFloat span = LEMSpreadSpan(recognizer, touches);
+    if (!gSpreadFollowing) {
+        gSpreadFollowing = YES;
+        gSpreadTriggered = NO;
+        gSpreadBaseSpan = span;
+        LEMSuppressScrollPan(recognizer);
+        LEMIconRippleBeginFollow(hostView);
+        return;
+    }
+    if (gSpreadTriggered) {
+        return;
+    }
+    CGFloat progress = (span - gSpreadBaseSpan) / LEMSpreadTriggerSpan;
+    if (progress >= 1.0) {
+        gSpreadTriggered = YES;
+        LEMRunSpread(hostView);
+        return;
+    }
+    LEMIconRippleUpdateFollow(progress);
+}
+
+// Measures the fingers itself before UIKit's own pinch threshold is reached.
+@interface LEMSpreadPinchRecognizer : UIPinchGestureRecognizer
+@end
+
+@implementation LEMSpreadPinchRecognizer
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesBegan:touches withEvent:event];
+    LEMSpreadTrackTouches(self, event);
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    // Measured before the pinch state machine runs, so a spread that already
+    // crossed the trigger is not started a second time by the recognizer's own
+    // Began.
+    LEMSpreadTrackTouches(self, event);
+    [super touchesMoved:touches withEvent:event];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesEnded:touches withEvent:event];
+    LEMSpreadTrackTouches(self, event);
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesCancelled:touches withEvent:event];
+    LEMSpreadFinish(self);
+}
+
+- (void)reset {
+    [super reset];
+    LEMSpreadFinish(self);
+}
+
+@end
 
 @interface LEMGestureObserver : NSObject <UIGestureRecognizerDelegate>
 + (instancetype)sharedObserver;
@@ -126,7 +261,7 @@ static void LEMRunSpread(UIPinchGestureRecognizer *recognizer) {
 
 - (UIPinchGestureRecognizer *)installPinchRecognizerOnScrollView:(UIScrollView *)scrollView {
     UIPinchGestureRecognizer *recognizer =
-        [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
+        [[LEMSpreadPinchRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
     recognizer.delegate = self;
     recognizer.cancelsTouchesInView = NO;
     recognizer.delaysTouchesBegan = NO;
@@ -149,12 +284,16 @@ static void LEMRunSpread(UIPinchGestureRecognizer *recognizer) {
     UIGestureRecognizerState state = recognizer.state;
     if (state == UIGestureRecognizerStateBegan) {
         LEMSuppressScrollPan(recognizer);
-        if (recognizer.scale > 1.0) {
-            LEMRunSpread(recognizer);
+        // The touches normally drive the spread before this state is reached.
+        // This is the fallback for a gesture whose touches were never measured.
+        if (!gSpreadFollowing && !gSpreadTriggered && recognizer.view && recognizer.scale > 1.0) {
+            gSpreadTriggered = YES;
+            LEMRunSpread(recognizer.view);
         }
     } else if (state == UIGestureRecognizerStateEnded ||
-               state == UIGestureRecognizerStateCancelled) {
-        LEMRestoreScrollPan(recognizer);
+               state == UIGestureRecognizerStateCancelled ||
+               state == UIGestureRecognizerStateFailed) {
+        LEMSpreadFinish(recognizer);
     }
 }
 
