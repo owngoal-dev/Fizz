@@ -15,9 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// take part.
 BOOL LEMIconRippleBeginFollow(UIView *hostView);
 
-/// Carries the followed icons outwards by `progress` of the follow leg. A
-/// progress of 1 is the trigger distance; anything above it keeps the icons
-/// easing outwards, up to the share the follow leg is allowed to take.
+/// Carries the followed icons towards the position `progress` asks for. A
+/// progress of 1 is the trigger distance; anything above it asks for a share
+/// that presses against the follow limit without reaching it, and the icons
+/// chase every one of those positions through a spring, not directly.
 void LEMIconRippleUpdateFollow(CGFloat progress);
 
 /// Ends the follow leg and drops the icons back to rest, with a short ease-out

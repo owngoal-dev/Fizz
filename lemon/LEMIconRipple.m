@@ -35,10 +35,15 @@ static const CGFloat LEMRippleOutKeyTime = 0.42;
 static const NSUInteger LEMRippleMaximumDepth = 8;
 // How much of the full offset the fingers carry the icons before the wave takes
 // over; the wave finishes the outward leg from there. Past the trigger distance
-// the icons keep following up to a second, larger share, so a spread that is
-// held open stays where the fingers left it.
+// the icons keep going, but each further point of spread adds less than the one
+// before, so the travel presses against a soft limit instead of being cut off.
 static const CGFloat LEMRippleFollowShare = 0.55;
-static const CGFloat LEMRippleFollowMaximumShare = 0.85;
+static const CGFloat LEMRippleFollowLimitShare = 0.9;
+// The followed value chases what the fingers ask for through a spring, so it
+// trails them a little and settles with a short overshoot instead of being glued
+// to the fingers. Slightly underdamped on purpose.
+static const CGFloat LEMRippleSpringStiffness = 400.0;
+static const CGFloat LEMRippleSpringDamping = 28.0;
 static const NSTimeInterval LEMRippleReturnDuration = 0.18;
 
 static NSString *const LEMRippleTranslationKeyX = @"transform.translation.x";
@@ -49,6 +54,9 @@ static NSString *const LEMRippleReturnKeyY = @"com.lemon.ripple.follow.y";
 static NSMutableArray<UIView *> *gFollowIcons = nil;
 static NSMutableArray<NSValue *> *gFollowOffsets = nil;
 static CGFloat gFollowShare = 0;
+static CGFloat gFollowTarget = 0;
+static CGFloat gFollowVelocity = 0;
+static NSTimeInterval gFollowLastTick = 0;
 
 static void LEMRippleCollectIconViews(UIView *view, NSMutableArray<UIView *> *icons, NSUInteger depth) {
     if (!view || depth > LEMRippleMaximumDepth) {
@@ -180,10 +188,111 @@ static void LEMRippleAddTranslation(CALayer *layer, NSString *keyPath, CGFloat o
     [layer addAnimation:animation forKey:keyPath];
 }
 
+// What the fingers ask for, in share of the full offset. Up to the trigger
+// distance it rises almost directly with them, and past it every further point
+// of spread buys less and less, approaching the limit without ever reaching it.
+static CGFloat LEMRippleFollowTargetShare(CGFloat progress) {
+    if (!(progress > 0)) {
+        return 0;
+    }
+    // Chosen so that progress 1 lands exactly on LEMRippleFollowShare.
+    const CGFloat knee = LEMRippleFollowLimitShare / LEMRippleFollowShare - 1.0;
+    return LEMRippleFollowLimitShare * progress / (progress + knee);
+}
+
+static void LEMRippleApplyFollow(void) {
+    NSUInteger count = gFollowIcons.count;
+    for (NSUInteger index = 0; index < count; index++) {
+        CGPoint offset = [gFollowOffsets[index] CGPointValue];
+        LEMRippleSetLayerTranslation(gFollowIcons[index].layer,
+                                     CGPointMake(offset.x * gFollowShare, offset.y * gFollowShare));
+    }
+}
+
+// One step of the spring that carries the icons towards what the fingers ask
+// for. It is what keeps them from being glued to the fingers: they trail a
+// little, keep moving for a moment after the fingers stop, and press against the
+// limit instead of stopping at it.
+static BOOL LEMRippleStepFollow(NSTimeInterval now) {
+    if (gFollowIcons.count == 0) {
+        return NO;
+    }
+    NSTimeInterval dt = gFollowLastTick > 0 ? now - gFollowLastTick : 1.0 / 60.0;
+    gFollowLastTick = now;
+    // A stalled frame must not make the spring explode.
+    dt = fmin(fmax(dt, 1.0 / 240.0), 1.0 / 30.0);
+
+    CGFloat displacement = gFollowTarget - gFollowShare;
+    CGFloat acceleration = LEMRippleSpringStiffness * displacement - LEMRippleSpringDamping * gFollowVelocity;
+    gFollowVelocity += acceleration * dt;
+    gFollowShare += gFollowVelocity * dt;
+
+    // The spring may overshoot the limit a little, which is the elasticity that
+    // is wanted, but it may never leave the range or go behind the start.
+    if (gFollowShare > LEMRippleFollowLimitShare) {
+        gFollowShare = LEMRippleFollowLimitShare;
+        gFollowVelocity = fmin(gFollowVelocity, 0);
+    } else if (gFollowShare < 0) {
+        gFollowShare = 0;
+        gFollowVelocity = fmax(gFollowVelocity, 0);
+    }
+
+    LEMRippleApplyFollow();
+    return YES;
+}
+
+// Runs the spring while the fingers are down. It is started by the first
+// movement of a follow leg and stopped as soon as the leg ends.
+@interface LEMFollowDriver : NSObject
+@property (nonatomic, strong) CADisplayLink *link;
++ (instancetype)sharedDriver;
+- (void)start;
+- (void)stop;
+@end
+
+static LEMFollowDriver *gFollowDriver = nil;
+
+@implementation LEMFollowDriver
+
++ (instancetype)sharedDriver {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gFollowDriver = [[LEMFollowDriver alloc] init];
+    });
+    return gFollowDriver;
+}
+
+- (void)start {
+    if (self.link) {
+        return;
+    }
+    gFollowLastTick = 0;
+    CADisplayLink *link = [CADisplayLink displayLinkWithTarget:self selector:@selector(tick:)];
+    [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    self.link = link;
+}
+
+- (void)stop {
+    [self.link invalidate];
+    self.link = nil;
+    gFollowLastTick = 0;
+}
+
+- (void)tick:(CADisplayLink *)link {
+    if (!LEMRippleStepFollow(CACurrentMediaTime())) {
+        [self stop];
+    }
+}
+
+@end
+
 static void LEMRippleResetFollowState(void) {
+    [[LEMFollowDriver sharedDriver] stop];
     [gFollowIcons removeAllObjects];
     [gFollowOffsets removeAllObjects];
     gFollowShare = 0;
+    gFollowTarget = 0;
+    gFollowVelocity = 0;
 }
 
 BOOL LEMIconRippleBeginFollow(UIView *hostView) {
@@ -198,20 +307,13 @@ BOOL LEMIconRippleBeginFollow(UIView *hostView) {
 }
 
 void LEMIconRippleUpdateFollow(CGFloat progress) {
-    NSUInteger count = gFollowIcons.count;
-    if (count == 0) {
+    if (gFollowIcons.count == 0) {
         return;
     }
-    // `progress` runs past 1 once the fingers are at the trigger distance: the
-    // icons then keep easing outwards, but only as far as the follow leg is
-    // allowed to go, so the wave still has somewhere to travel.
-    CGFloat share = fmin(LEMRippleFollowShare * fmax(progress, 0.0), LEMRippleFollowMaximumShare);
-    gFollowShare = share;
-    for (NSUInteger index = 0; index < count; index++) {
-        CGPoint offset = [gFollowOffsets[index] CGPointValue];
-        LEMRippleSetLayerTranslation(gFollowIcons[index].layer,
-                                     CGPointMake(offset.x * share, offset.y * share));
-    }
+    // The fingers only set what to aim at; the spring decides where the icons
+    // actually are on this frame.
+    gFollowTarget = LEMRippleFollowTargetShare(progress);
+    [[LEMFollowDriver sharedDriver] start];
 }
 
 void LEMIconRippleEndFollow(BOOL animated) {
@@ -242,6 +344,9 @@ void LEMIconRippleEndFollow(BOOL animated) {
 }
 
 NSTimeInterval LEMIconRippleRun(UIView *hostView) {
+    // The follow leg ends here: from this point the wave animates the icons, and
+    // the last position the spring left them in is where the wave starts.
+    [[LEMFollowDriver sharedDriver] stop];
     CGFloat followShare = gFollowShare;
 
     NSMutableArray<NSValue *> *offsets = [NSMutableArray array];

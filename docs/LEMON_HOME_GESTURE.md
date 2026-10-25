@@ -20,8 +20,9 @@
 pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子类）。UIKit 的 pinch 要等手指跨过它自己的阈值才进 `Began`，那之前的扩张完全拿不到，所以跟手不看它的状态，而是自己在 `touchesBegan`/`touchesMoved` 里量两指距离：
 
 - 第二指落下时记下当时的指距作为基线，同时压制 pan 并调用 `LEMIconRippleBeginFollow` 收集本轮参与的图标。
-- 之后每次移动按 `(当前指距 − 基线) / 40pt` 算进度，交给 `LEMIconRippleUpdateFollow`：每个图标沿“图标中心减 window 中心”的方向按满程 26pt 的 55% 跟手外移。指距缩回则进度回落，夹在 0 以上。
-- 手指还按着的时候只有跟手，没有涟漪、没有触感、不清角标。进度超过 1 之后图标继续缓出，但最多到满程的 85%（`LEMRippleFollowMaximumShare`），所以攥着不放也是停在那里，不会跑满。
+- 之后每次移动按 `(当前指距 − 基线) / 40pt` 算进度，交给 `LEMIconRippleUpdateFollow`：进度到 1 时图标沿“图标中心减 window 中心”的方向外移到满程 26pt 的 55%，超过 1 之后继续往外，但幅度按 `0.9 × p / (p + 0.636)` 逐渐收敛，越往外每一点指距换来的位移越小，永远不会真的到达满程的 90%（`LEMRippleFollowLimitShare`）。这就是弹性限位：不是卡在某个最大值上不动，而是越推越费劲。指距缩回则目标回落，夹在 0 以上。
+- 图标不直接跟着手指走：`LEMIconRippleUpdateFollow` 只设定目标占比，实际位置由一个每帧步进的弹簧追上去（`CADisplayLink` 驱动，刚度 400、阻尼 28，略微欠阻尼）。往外交和往回缩都会略微滞后一点、手指停住后还会自己再贴上去一点，偶尔有极小的过冲，而不是指哪停哪。
+- 手指还按着的时候只有跟手，没有涟漪、没有触感、不清角标。
 - 触发只看松手那一刻：`touchesEnded` 先用 `LEMSpreadReleaseSpan` 量出抬指位置（此时被抬起的 `UITouch` 还在 `touchesForGestureRecognizer:` 里，位置是抬起点，不是抬手前最后一次移动的位置），再交回手势状态机。
 - 抬起时的指距比基线大 40pt 以上，就用 `LEMRunSpread` 起一波涟漪；`LEMIconRippleRun` 先读回图标当前所在位置作为动画起点，所以跟手到涟漪的交接没有跳变，外层再配角标清除。
 - 抬起时没有到阈值，只是 `LEMIconRippleEndFollow(YES)` 用 0.18 秒 ease-out 把图标送回原位，不起涟漪、不出触感、不清角标。
