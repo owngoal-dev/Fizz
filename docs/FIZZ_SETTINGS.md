@@ -9,6 +9,19 @@
 
 面板安装后，Settings 进程要重新启动一次才会载入新 bundle；已经打开的面板会继续用内存里的旧二进制。
 
+## 面板外观
+
+表格顶部有一个 banner（`FIZZBannerView`），挂在 `tableHeaderView` 上，因此随列表滚走、不遮挡内容，高度固定 `FIZZBannerHeight = 144`：
+
+- 卡片左右各留 16，上留 12、下留 6，圆角 18（continuous），1 像素描边。
+- 卡片底色是 `CAGradientLayer` 对角渐变：浅色模式 `#F5F7FF → #E7FBF6`，深色模式 `#191C28 → #0E211E`；`traitCollectionDidChange:` 里换色，并用 `CATransaction` 关掉隐式动画。
+- 左边 50×50 的图标用 ImageIO 直接读 bundle 里的 `banner@3x.png` 塞进 `layer.contents`（`kCAGravityResizeAspect`），不走 `imageNamed:inBundle:`，以免被解析到 Settings 主 bundle。
+- 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。
+- 分隔线下是页脚一行：左边“乌龙工作室”，右边版本药丸 `v0.1.0`，药丸底色是青绿 accent 的 12%（深色 18%），文字同色。
+- 版本号取自 bundle 的 `CFBundleShortVersionString`，不硬编码。
+
+面板要拿到表格：`FIZZFindTableView()` 从 `self.view` 往下找第一个 `UITableView`（`PSListController` 的 `view` 可能本身就是表），宽度还没算出来时先跳过；`viewDidLoad` 异步装一次，`viewDidLayoutSubviews` 每次核对，宽度变了才重设，因此不会死循环。
+
 ## 三个开关
 
 面板只有三个开关，都写在 `com.fizz.ripple` 域里，默认都是打开（没写过值时读取回退到 `YES`）：

@@ -87,6 +87,8 @@ for ARCH in $ARCHS; do
           -bundle -undefined dynamic_lookup \
           -framework Foundation \
           -framework UIKit \
+          -framework QuartzCore \
+          -framework ImageIO \
           -o "$OBJ_DIR/$PREFS_NAME-$ARCH" \
           "$PREF_SRC_DIR/FIZZPrefsRootListController.m" \
           "$SRC_DIR/FIZZPreferences.m"
@@ -109,6 +111,7 @@ cp "$SRC_DIR/$TWEAK_NAME.plist" "$LIB_DIR/$TWEAK_NAME.plist"
 cp "$OBJ_DIR/$PREFS_NAME" "$PREFS_BUNDLE_DIR/$PREFS_NAME"
 cp "$PREF_SRC_DIR/Info.plist" "$PREFS_BUNDLE_DIR/Info.plist"
 cp "$PREF_SRC_DIR/icon.png" "$PREF_SRC_DIR/icon@2x.png" "$PREF_SRC_DIR/icon@3x.png" "$PREFS_BUNDLE_DIR/"
+cp "$PREF_SRC_DIR/banner.png" "$PREF_SRC_DIR/banner@2x.png" "$PREF_SRC_DIR/banner@3x.png" "$PREFS_BUNDLE_DIR/"
 cp "$PREF_SRC_DIR/Fizz.plist" "$PREFS_ENTRY_DIR/Fizz.plist"
 
 cat > "$STAGE_DIR/DEBIAN/control" <<EOF
