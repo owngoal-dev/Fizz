@@ -64,40 +64,16 @@ static NSString *FIZZStateDirectory(void) {
     return directory;
 }
 
-static NSArray<NSString *> *FIZZLegacyStatePaths(NSString *name) {
-    NSMutableArray<NSString *> *paths = [NSMutableArray array];
-    NSString *jbroot = FIZZJBRootPath();
-    if (jbroot.length > 0) {
-        NSString *directory = [jbroot stringByAppendingPathComponent:@"var/log/lemon"];
-        [paths addObject:[directory stringByAppendingPathComponent:name]];
-    }
-    [paths addObject:[@"/var/jb/var/log/lemon" stringByAppendingPathComponent:name]];
-    return paths;
-}
-
 NSDictionary *FIZZStateRead(NSString *name) {
     if (name.length == 0) {
         return nil;
     }
     NSString *directory = FIZZStateDirectory();
-    if (directory.length > 0) {
-        NSString *path = [directory stringByAppendingPathComponent:name];
-        NSDictionary *stored = [NSDictionary dictionaryWithContentsOfFile:path];
-        if (stored) {
-            return stored;
-        }
+    if (directory.length == 0) {
+        return nil;
     }
-    for (NSString *legacyPath in FIZZLegacyStatePaths(name)) {
-        NSDictionary *stored = [NSDictionary dictionaryWithContentsOfFile:legacyPath];
-        if (!stored) {
-            continue;
-        }
-        // Older builds wrote here; carry the file over so the first launch after
-        // an upgrade does not lose what was already recorded.
-        FIZZStateWrite(name, stored);
-        return stored;
-    }
-    return nil;
+    NSString *path = [directory stringByAppendingPathComponent:name];
+    return [NSDictionary dictionaryWithContentsOfFile:path];
 }
 
 BOOL FIZZStateWrite(NSString *name, NSDictionary *contents) {
