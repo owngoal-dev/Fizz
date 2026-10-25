@@ -23,9 +23,8 @@ typedef NS_ENUM(NSInteger, FIZZHapticSettleKind) {
 /// Returns NO when the haptics switch is off.
 BOOL FIZZHapticsPlaySettle(FIZZHapticSettleKind kind);
 
-/// Wakes the feedback generators ahead of the first spread, so the impact does
-/// not pay the warm-up delay. Called when the home screen appears; safe to call
-/// more than once.
+/// Arms the feedback generators when a spread gesture starts, so the impact does
+/// not pay the warm-up delay at the end of the wave. Safe to call more than once.
 void FIZZHapticsPrewarm(void);
 
 NS_ASSUME_NONNULL_END

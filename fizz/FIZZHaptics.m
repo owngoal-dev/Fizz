@@ -9,7 +9,8 @@
 //  The difference between them is the style: a spread that cleared badges lands
 //  with a hard, crisp click, and one that only rippled the icons with a soft tap.
 //  UIKit's feedback generators are the system taps; each is created once, kept
-//  alive and prepared again after every play, so the next gesture finds it ready.
+//  alive, and armed when a spread gesture starts, which is the only prewarming
+//  Fizz does.
 //
 
 #import "FIZZHaptics.h"
@@ -44,11 +45,7 @@ BOOL FIZZHapticsPlaySettle(FIZZHapticSettleKind kind) {
     if (!FIZZHapticsEnabled()) {
         return NO;
     }
-    UIImpactFeedbackGenerator *generator = FIZZHapticsGenerator(kind);
-    [generator impactOccurred];
-    // Armed again right away, so a second spread inside the tail of this one does
-    // not wait for the hardware to wake up.
-    [generator prepare];
+    [FIZZHapticsGenerator(kind) impactOccurred];
     return YES;
 }
 

@@ -51,8 +51,8 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 - 两种手感：没有角标可清时 `FIZZHapticSettleKindEmpty`，用 `UIImpactFeedbackStyleSoft`，一声闷而轻的轻响；有角标、气泡在去路上炸掉时 `FIZZHapticSettleKindCleared`，用 `UIImpactFeedbackStyleRigid`，同样一下但硬而脆。两者都是单次 `impactOccurred`，没有自定义节奏。
 - 轻重在松手那一刻决定：`clearingBadges = FIZZFeatureEnabled() && FIZZBadgeHasBadges()`，随后排队的那一下带的是这个值。
 - 连打不叠加：排队前记下本轮 `gSpreadGeneration`，到点时若已有新的一轮接管就放弃，由新一轮自己排它那一下，因此不会连响、也不会提前响。
-- `fizz/FIZZHaptics.m` 按 kind 各留一个生成器，第一次用哪个就建哪个，播完立刻 `prepare` 重新武装，下一次不用等硬件唤醒。
-- 主屏出现时 `FIZZHapticsPrewarm()` 把两个生成器都 `prepare` 一次，第一次手势的那一下也是热的。
+- `fizz/FIZZHaptics.m` 按 kind 各留一个生成器，第一次用到哪个就建哪个，之后一直活着。
+- 预热只在手势起点做一次：第二根手指落下、`FIZZSpreadTrackTouches` 判定跟手开始时调 `FIZZHapticsPrewarm()`，把两个生成器一起 `prepare`（不知道松手时会不会清角标，所以两个都要热）。播完不再重新 `prepare`，主屏出现时也不预热——那些时刻离真正震动太远，引擎早凉了，只是白叫一次。
 - 触感由 `FIZZHapticsEnabled()` 控制，即全局开关与“触感反馈”同时打开；关闭时 `FIZZHapticsPlaySettle()` 直接返回，不建生成器也不准备。
 - 生产日志不记录触感，只有加载时的 `ApelinLoaded`。
 

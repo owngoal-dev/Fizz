@@ -267,6 +267,9 @@ static void FIZZSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent
         gSpreadSpan = span;
         FIZZSuppressScrollPan(recognizer);
         FIZZIconRippleBeginFollow(hostView);
+        // The fingers are on the glass and the wave is at most a gesture away, so
+        // this is the one place the taps are armed from.
+        FIZZHapticsPrewarm();
         return;
     }
     // The icons keep following the fingers past the trigger distance, so a
@@ -447,7 +450,6 @@ static void FIZZHookedRootFolderViewWillAppear(id self, SEL _cmd, id controller)
     }
     dispatch_async(dispatch_get_main_queue(), ^{
         FIZZAttachToExistingScrollViews();
-        FIZZHapticsPrewarm();
     });
 }
 
