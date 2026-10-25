@@ -4,8 +4,8 @@
 //
 //  Core Haptics playback for the spread. Two AHAP files sit next to the dylib and
 //  share their first 0.62 s: LEMRipple.ahap is the plain spread, and
-//  LEMRippleCleared.ahap keeps that rhythm, cuts it with two tight dots and then
-//  drops into a low rumble and a thud for the badges that were wiped.
+//  LEMRippleCleared.ahap keeps that rhythm and then lands one crisp knock when the
+//  badges are gone.
 //
 //  The engine is created once and kept alive with auto shutdown, so the first
 //  spread of a session does not pay the engine start latency.

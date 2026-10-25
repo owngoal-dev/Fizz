@@ -10,14 +10,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Fades the badges of one icon in step with its ripple beat: the same duration,
-/// the same delay the icon itself got, and fully faded by `outKeyTime`. Called by
-/// the ripple for every icon it animates.
-void LEMBadgeFadeWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay,
-                            CGFloat outKeyTime);
+/// Pops the badges of one icon in step with its ripple beat: the same duration
+/// and the same delay the icon itself got, so each badge puffs up like a bubble
+/// and bursts as its icon comes to rest. Called by the ripple for every icon it
+/// animates.
+void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay);
 
-/// Clears the badge value of every leaf icon and settles the views faded above.
-/// Must be called on the main queue, once the ripple has finished, so the fade is
+/// Clears the badge value of every leaf icon and settles the views popped above.
+/// Must be called on the main queue, once the ripple has finished, so the pop is
 /// seen to its end instead of being cut short by the reload it triggers.
 void LEMBadgeClearAll(void);
 

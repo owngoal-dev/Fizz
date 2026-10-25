@@ -24,13 +24,14 @@
 //
 //  View: the badge is an SBIconBadgeView, a subview of the icon's image view
 //  that is configured with -configureForIcon:infoProvider: and recycled with
-//  -prepareForReuse. It fades out on the beat of the icon ripple — same
-//  duration, same per-icon delay, same curve — and the data is cleared only
+//  -prepareForReuse. It leaves as a bubble does, on the beat of the icon ripple
+//  — same duration, same per-icon delay — puffing up, then bursting in the last
+//  tenth of that beat with a thin ring thrown outward. The data is cleared only
 //  after the ripple has settled, because clearing it up front makes SpringBoard
-//  drop the badge view at once and the fade is never seen.
+//  drop the badge view at once and the pop is never seen.
 //
 //  Reuse: an SBIconBadgeView is handed to another icon while scrolling, so the
-//  fade, the hidden flag and a lowered alpha are all reset at the two entry
+//  pop, the hidden flag and a lowered alpha are all reset at the two entry
 //  points SpringBoard uses to reuse it. That keeps a real badge, arriving
 //  later, visible.
 //
@@ -46,10 +47,12 @@
 #import <objc/runtime.h>
 #import <os/lock.h>
 
-static NSString *const LEMBadgeFadeKey = @"com.lemon.badge.fade";
+static NSString *const LEMBadgePopKey = @"com.lemon.badge.pop";
+static NSString *const LEMBadgePopScaleKey = @"com.lemon.badge.pop.scale";
+static NSString *const LEMBadgeBurstRingKey = @"com.lemon.badge.pop.ring";
 static NSString *const LEMBadgeStateFileName = @"badge-suppression.plist";
 
-static NSHashTable<UIView *> *gFadingBadgeViews = nil;
+static NSHashTable<UIView *> *gPoppingBadgeViews = nil;
 
 // Set while Lemon itself is writing the badge values, so the write gate can tell
 // its own clearing apart from a badge the system hands back.
@@ -141,7 +144,8 @@ static void (*LEMOriginalBadgeConfigure)(id, SEL, id, id) = NULL;
 static void (*LEMOriginalBadgeConfigureAnimated)(id, SEL, id, id, id) = NULL;
 
 static void LEMBadgeResetView(UIView *view) {
-    [view.layer removeAnimationForKey:LEMBadgeFadeKey];
+    [view.layer removeAnimationForKey:LEMBadgePopKey];
+    [view.layer removeAnimationForKey:LEMBadgePopScaleKey];
     view.hidden = NO;
     view.alpha = 1.0;
 }
@@ -293,57 +297,171 @@ void LEMBadgeInstallWatchers(void) {
 
 #pragma mark - Views
 
-static NSUInteger LEMBadgeFadeTree(UIView *view, Class badgeClass, NSTimeInterval duration,
-                                   NSTimeInterval beginTime, CGFloat outKeyTime) {
+// A badge leaves the way a soap bubble does: it puffs up and holds while the
+// icon springs back, then bursts in the last tenth of the beat and throws a thin
+// ring outward. The scale and the opacity share one duration, so the pop lands
+// exactly where the old fade used to end.
+static const CGFloat LEMBadgePopScaleValues[] = { 1.0, 1.24, 1.18, 1.46 };
+static const CGFloat LEMBadgePopScaleTimes[] = { 0.0, 0.34, 0.80, 1.0 };
+static const CGFloat LEMBadgePopOpacityValues[] = { 1.0, 1.0, 0.92, 0.0 };
+static const CGFloat LEMBadgePopOpacityTimes[] = { 0.0, 0.50, 0.82, 1.0 };
+static const CGFloat LEMBadgeBurstRingStart = 0.82;
+
+static NSMutableArray<CAShapeLayer *> *gBurstRings = nil;
+
+static NSArray<NSNumber *> *LEMBadgeScaledValues(const CGFloat *values, NSUInteger count,
+                                                 CGFloat baseScale) {
+    NSMutableArray<NSNumber *> *scaled = [NSMutableArray arrayWithCapacity:count];
+    for (NSUInteger index = 0; index < count; index++) {
+        [scaled addObject:@(values[index] * baseScale)];
+    }
+    return scaled;
+}
+
+static NSArray<NSNumber *> *LEMBadgeNumbers(const CGFloat *values, NSUInteger count) {
+    NSMutableArray<NSNumber *> *numbers = [NSMutableArray arrayWithCapacity:count];
+    for (NSUInteger index = 0; index < count; index++) {
+        [numbers addObject:@(values[index])];
+    }
+    return numbers;
+}
+
+static UIColor *LEMBadgeBubbleColor(UIView *badge) {
+    UIColor *background = badge.backgroundColor;
+    if (background && CGColorGetAlpha(background.CGColor) > 0.05) {
+        return background;
+    }
+    return badge.tintColor ?: [UIColor systemRedColor];
+}
+
+// The ring lives in the badge's superview, since the badge itself is scaled by
+// the pop. It stays at zero opacity until the burst, so nothing shows during the
+// delay of the icons farther out.
+static void LEMBadgeAddBurstRing(UIView *badge, NSTimeInterval beginTime,
+                                 NSTimeInterval duration) {
+    UIView *container = badge.superview;
+    if (!container || duration <= 0) {
+        return;
+    }
+    CAShapeLayer *ring = [CAShapeLayer layer];
+    ring.frame = badge.frame;
+    CGRect bounds = ring.bounds;
+    if (CGRectGetWidth(bounds) < 2 || CGRectGetHeight(bounds) < 2) {
+        return;
+    }
+    ring.path = [UIBezierPath bezierPathWithOvalInRect:CGRectInset(bounds, 0.75, 0.75)].CGPath;
+    ring.fillColor = UIColor.clearColor.CGColor;
+    ring.strokeColor = LEMBadgeBubbleColor(badge).CGColor;
+    ring.lineWidth = 1.5;
+    ring.opacity = 0.0f;
+    [container.layer addSublayer:ring];
+
+    CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+    fade.values = @[ @0.0, @0.0, @0.95, @0.0 ];
+    fade.keyTimes = @[
+        @0.0, @(LEMBadgeBurstRingStart), @(LEMBadgeBurstRingStart + 0.05), @1.0
+    ];
+    fade.duration = duration;
+    fade.beginTime = beginTime;
+    fade.fillMode = kCAFillModeForwards;
+    fade.removedOnCompletion = NO;
+    [ring addAnimation:fade forKey:LEMBadgeBurstRingKey];
+
+    CAKeyframeAnimation *scale = [CAKeyframeAnimation animationWithKeyPath:@"transform.scale"];
+    scale.values = @[ @1.0, @1.0, @2.05 ];
+    scale.keyTimes = @[ @0.0, @(LEMBadgeBurstRingStart), @1.0 ];
+    scale.duration = duration;
+    scale.beginTime = beginTime;
+    scale.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+    scale.fillMode = kCAFillModeForwards;
+    scale.removedOnCompletion = NO;
+    [ring addAnimation:scale forKey:LEMBadgeBurstRingKey];
+
+    if (!gBurstRings) {
+        gBurstRings = [NSMutableArray array];
+    }
+    [gBurstRings addObject:ring];
+}
+
+static void LEMBadgePopView(UIView *badge, NSTimeInterval duration, NSTimeInterval beginTime) {
+    // A badge that already carries a scale keeps it, so the puff multiplies what
+    // is there instead of snapping the view back to 1.
+    CATransform3D transform = badge.layer.transform;
+    CGFloat baseScale = sqrt(transform.m11 * transform.m11 + transform.m12 * transform.m12);
+    if (!(baseScale > 0.01)) {
+        baseScale = 1.0;
+    }
+
+    CAKeyframeAnimation *pop = [CAKeyframeAnimation animationWithKeyPath:@"transform.scale"];
+    pop.values = LEMBadgeScaledValues(LEMBadgePopScaleValues, 4, baseScale);
+    pop.keyTimes = LEMBadgeNumbers(LEMBadgePopScaleTimes, 4);
+    pop.duration = duration;
+    pop.beginTime = beginTime;
+    pop.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    pop.fillMode = kCAFillModeForwards;
+    pop.removedOnCompletion = NO;
+    [badge.layer addAnimation:pop forKey:LEMBadgePopScaleKey];
+
+    // The bubble stays solid for most of the beat, so the burst reads as the film
+    // breaking instead of the badge fading away.
+    CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+    fade.values = LEMBadgeNumbers(LEMBadgePopOpacityValues, 4);
+    fade.keyTimes = LEMBadgeNumbers(LEMBadgePopOpacityTimes, 4);
+    fade.duration = duration;
+    fade.beginTime = beginTime;
+    fade.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    fade.fillMode = kCAFillModeForwards;
+    fade.removedOnCompletion = NO;
+    [badge.layer addAnimation:fade forKey:LEMBadgePopKey];
+
+    LEMBadgeAddBurstRing(badge, beginTime, duration);
+}
+
+static NSUInteger LEMBadgePopTree(UIView *view, Class badgeClass, NSTimeInterval duration,
+                                  NSTimeInterval beginTime) {
     if (!view) {
         return 0;
     }
-    NSUInteger faded = 0;
+    NSUInteger popped = 0;
     if ([view isKindOfClass:badgeClass] && view.window && !view.hidden) {
-        // Same duration, delay and curve as the icon's own keyframe animation,
-        // but the fade runs the whole beat: the badge is still faintly there
-        // while the icon springs back, and reaches zero as the icon rests.
-        CAKeyframeAnimation *fade = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
-        fade.values = @[ @(view.layer.opacity), @0.0 ];
-        fade.keyTimes = @[ @0.0, @(outKeyTime) ];
-        fade.duration = duration;
-        fade.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-        fade.beginTime = beginTime;
-        fade.fillMode = kCAFillModeForwards;
-        fade.removedOnCompletion = NO;
-        [view.layer addAnimation:fade forKey:LEMBadgeFadeKey];
-        [gFadingBadgeViews addObject:view];
-        faded++;
+        // Same duration and delay as the icon's own keyframe animation, so the
+        // burst lands as the icon comes to rest and the last badge is gone.
+        LEMBadgePopView(view, duration, beginTime);
+        [gPoppingBadgeViews addObject:view];
+        popped++;
     }
     for (UIView *child in view.subviews) {
-        faded += LEMBadgeFadeTree(child, badgeClass, duration, beginTime, outKeyTime);
+        popped += LEMBadgePopTree(child, badgeClass, duration, beginTime);
     }
-    return faded;
+    return popped;
 }
 
-void LEMBadgeFadeWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay,
-                            CGFloat outKeyTime) {
+void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay) {
     Class badgeClass = objc_getClass("SBIconBadgeView");
     if (!iconView || !badgeClass || duration <= 0) {
         return;
     }
-    if (!gFadingBadgeViews) {
-        gFadingBadgeViews = [NSHashTable weakObjectsHashTable];
+    if (!gPoppingBadgeViews) {
+        gPoppingBadgeViews = [NSHashTable weakObjectsHashTable];
     }
-    LEMBadgeFadeTree(iconView, badgeClass, duration, CACurrentMediaTime() + delay, outKeyTime);
+    LEMBadgePopTree(iconView, badgeClass, duration, CACurrentMediaTime() + delay);
 }
 
 // Runs once the ripple is over: a badge whose icon is still badged would pop back
 // in when the animation is dropped, so the view stays hidden instead. The reuse
 // hooks above lift the flag again as soon as SpringBoard reconfigures the view.
-static void LEMBadgeSettleFaded(void) {
-    for (UIView *view in gFadingBadgeViews.allObjects) {
-        [view.layer removeAnimationForKey:LEMBadgeFadeKey];
+static void LEMBadgeSettlePopped(void) {
+    for (UIView *view in gPoppingBadgeViews.allObjects) {
+        LEMBadgeResetView(view);
         if (view.window && !view.hidden) {
             view.hidden = YES;
         }
     }
-    [gFadingBadgeViews removeAllObjects];
+    [gPoppingBadgeViews removeAllObjects];
+    for (CAShapeLayer *ring in gBurstRings) {
+        [ring removeFromSuperlayer];
+    }
+    [gBurstRings removeAllObjects];
 }
 
 #pragma mark - Data
@@ -433,8 +551,8 @@ void LEMBadgeClearAll(void) {
         gInsideSelfClear = NO;
     }
 
-    // The ripple has settled by now: every faded view has finished its beat. Drop
+    // The ripple has settled by now: every popped view has finished its beat. Drop
     // the animations and keep the views hidden; icons whose data really went away
     // have had their badge views removed already.
-    LEMBadgeSettleFaded();
+    LEMBadgeSettlePopped();
 }

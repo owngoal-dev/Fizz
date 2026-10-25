@@ -2,7 +2,7 @@
   "Version": 1.0,
   "Metadata": {
     "Project": "Lemon",
-    "Description": "The spread when there are badges to clear. The first 0.62 s are the plain spread: a soft catch, a low swell that thins out as it travels, and three rings that lose weight and gain sharpness towards the edges. The badges fade across that same beat, so they are still faintly there as the icons come back. The moment the wave settles and the last badge is gone, one blunt clunk lands - a full-strength low-sharpness hit carried by a 0.13 s body, with a short settle a beat later - and then nothing."
+    "Description": "The spread when there are badges to clear. The first 0.62 s are the plain spread: a soft catch, a low swell that thins out as it travels, and three rings that lose weight and gain sharpness towards the edges. The badges fade across that same beat, so they are still faintly there as the icons come back. The moment the wave settles and the last badge is gone, one crisp knock lands: a strong transient at medium sharpness carried by a 0.07 s body that falls away at once and sharpens as it goes, so it reads as a single clean click and nothing follows it."
   },
   "Pattern": [
     {
@@ -84,8 +84,8 @@
         "Time": 0.64,
         "EventType": "HapticTransient",
         "EventParameters": [
-          { "ParameterID": "HapticIntensity", "ParameterValue": 0.95 },
-          { "ParameterID": "HapticSharpness", "ParameterValue": 0.08 }
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.90 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.62 }
         ]
       }
     },
@@ -93,10 +93,10 @@
       "Event": {
         "Time": 0.64,
         "EventType": "HapticContinuous",
-        "EventDuration": 0.13,
+        "EventDuration": 0.07,
         "EventParameters": [
-          { "ParameterID": "HapticIntensity", "ParameterValue": 0.85 },
-          { "ParameterID": "HapticSharpness", "ParameterValue": 0.05 }
+          { "ParameterID": "HapticIntensity", "ParameterValue": 0.60 },
+          { "ParameterID": "HapticSharpness", "ParameterValue": 0.60 }
         ]
       }
     },
@@ -105,9 +105,9 @@
         "ParameterID": "HapticIntensityControl",
         "Time": 0.64,
         "ParameterCurveControlPoints": [
-          { "Time": 0.00, "ParameterValue": 1.00 },
-          { "Time": 0.04, "ParameterValue": 0.85 },
-          { "Time": 0.13, "ParameterValue": 0.00 }
+          { "Time": 0.00, "ParameterValue": 0.95 },
+          { "Time": 0.02, "ParameterValue": 0.55 },
+          { "Time": 0.07, "ParameterValue": 0.00 }
         ]
       }
     },
@@ -116,18 +116,8 @@
         "ParameterID": "HapticSharpnessControl",
         "Time": 0.64,
         "ParameterCurveControlPoints": [
-          { "Time": 0.00, "ParameterValue": 0.06 },
-          { "Time": 0.13, "ParameterValue": 0.02 }
-        ]
-      }
-    },
-    {
-      "Event": {
-        "Time": 0.79,
-        "EventType": "HapticTransient",
-        "EventParameters": [
-          { "ParameterID": "HapticIntensity", "ParameterValue": 0.45 },
-          { "ParameterID": "HapticSharpness", "ParameterValue": 0.06 }
+          { "Time": 0.00, "ParameterValue": 0.55 },
+          { "Time": 0.07, "ParameterValue": 0.85 }
         ]
       }
     }

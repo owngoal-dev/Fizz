@@ -75,7 +75,7 @@ static const NSInteger LEMSwitchCellType = 6;
     if (!_specifiers) {
         PSSpecifier *gestures = [PSSpecifier groupSpecifierWithName:@"手势"];
         [gestures setProperty:@"主屏幕双指外扩：图标向外扩散，同时清除所有角标，并按涟漪节奏播放自定义触感；"
-                             @"有角标被清掉时，角标淡出到最后会补一下轻微的“咯噔”。关闭后手势不再响应。"
+                             @"有角标被清掉时，气泡破完会补一下清脆的“咯噔”。关闭后手势不再响应。"
                        forKey:@"footerText"];
 
         PSSpecifier *badges = [PSSpecifier groupSpecifierWithName:@"角标"];
