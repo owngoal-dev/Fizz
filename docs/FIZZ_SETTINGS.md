@@ -40,6 +40,8 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 面板代码里不放任何中文字面量：所有可见文字都在 `fizz/prefs/<lang>.lproj/Localizable.strings`，代码里只留英文兜底值。
 
+已支持的 10 种语言（系统语言匹配不到时用 `en`）：`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`de`、`fr`、`es`、`ru`、`pt-BR`。每个语言的 `.strings` 都必须是同一组 5 个键：
+
 | 键 | 英文（`en.lproj`） | 简体中文（`zh-Hans.lproj`） |
 | --- | --- | --- |
 | `enabled` | Enable | 启用 |
@@ -49,8 +51,10 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 | `badges_footer` | Apps republish their badges … the old number may come back. | App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。 |
 
 - 查找走 `FIZZLocalizedString(key, fallback)`：对 `[NSBundle bundleForClass:FIZZPrefsRootListController]` 调 `localizedStringForKey:value:table:@"Localizable"`。不能用 `NSLocalizedString`，它查的是 Settings 主 bundle，拿不到面板自己的资源。
-- `Info.plist` 的 `CFBundleDevelopmentRegion` 是 `en`；系统语言既不是英文也不是简体中文时落到英文兜底。
-- 唯一分组没有标题（`groupSpecifierWithName:@""`），footer 用 `badges_footer`。这段话必须指名“角标维持”，因为同一个分组里现在有两个开关，不能再说“本项”。
+- `Info.plist` 的 `CFBundleDevelopmentRegion` 是 `en`；新增语言只要新建 `<lang>.lproj/Localizable.strings`，`apelin/build.sh` 会把所有 `*.lproj` 拷进 bundle，不需要登记。
+- 各语言里 footer 都用本地化的引号包住“角标维持”那一行的名字（中文全角“”，日文「」，德/法/俄/西用 « » 或 „ “，英/韩/葡用 “”/‘’ 按当地习惯），因为同一个分组里有两个开关，不能再说“本项”。
+- 各语言的“角标”用词跟随 Apple 本地化：`badge` → 日 `バッジ`、韩 `배지`、德 `Badge`、法 `pastille`、西 `distintivo`、俄 `значок`、葡 `selo`。
+- 唯一分组没有标题（`groupSpecifierWithName:@""`），footer 用 `badges_footer`。
 - 产品名 `Fizz`（banner 标题、面板标题、设置入口、包名）不翻译；设置入口名写在 `fizz/prefs/Fizz.plist` 的 `label` 里。
 - 原“手势”分组的标题和 footer（“双指外扩清除所有角标。”）已删除，那句话改由 banner 副标题承担。
 - 开关“角标维持”只改显示名，键仍是 `KeepCleared`，已保存的设置不受影响。

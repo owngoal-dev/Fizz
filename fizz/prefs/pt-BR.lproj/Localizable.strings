@@ -1,0 +1,10 @@
+/*
+   Localizable.strings (Brazilian Portuguese)
+   Fizz
+*/
+
+"enabled" = "Ativar";
+"haptics" = "Retorno tátil";
+"keep_cleared" = "Manter selos limpos";
+"banner_subtitle" = "Afaste dois dedos para os selos saírem voando junto com os ícones";
+"badges_footer" = "Os apps reenviam seus selos ao abrir ou ao ir para o segundo plano. Com “Manter selos limpos” ativado, um número reenviado igual ao limpo é ignorado e um número novo continua aparecendo; com a opção desligada, o número antigo pode voltar.";

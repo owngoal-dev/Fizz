@@ -12,7 +12,7 @@
 - 代码注释必须使用英语。
 - 运行时日志、调试日志、错误日志、诊断消息必须使用英语。
 - 标识符、文件名、目录名、构建脚本、测试名、提交信息默认使用英语。
-- `fizz/**`、`apelin/**`、`scripts/**` 里不得出现中文字面量；面向用户显示的文本只能写在 `fizz/prefs/<lang>.lproj/Localizable.strings`（现有 `en.lproj`、`zh-Hans.lproj`），代码里只留英文兜底值。面板加载时用 `FIZZLocalizedString()` 查面板自身 bundle，不能用 `NSLocalizedString`（它查 Settings 主 bundle）。
+- `fizz/**`、`apelin/**`、`scripts/**` 里不得出现中文字面量；面向用户显示的文本只能写在 `fizz/prefs/<lang>.lproj/Localizable.strings`（现有 `en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`de`、`fr`、`es`、`ru`、`pt-BR`），代码里只留英文兜底值。面板加载时用 `FIZZLocalizedString()` 查面板自身 bundle，不能用 `NSLocalizedString`（它查 Settings 主 bundle）。新增语言时，新 `.strings` 必须带齐同样的键，`apelin/build.sh` 会自动打包所有 `*.lproj`。
 
 ## 协作方式
 
