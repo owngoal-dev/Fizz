@@ -10,10 +10,10 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Pops the badges of one icon in step with its ripple beat: the same duration
-/// and the same delay the icon itself got, so each badge grows while it fades out
-/// and the last one is gone as its icon comes to rest. Called by the ripple for
-/// every icon it animates.
+/// Pops the badges of one icon in step with its ripple beat: the same delay the
+/// icon itself got, over half of its beat, so each badge grows while it fades out
+/// and the last one is long gone as its icon comes to rest. Called by the ripple
+/// for every icon it animates.
 void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay);
 
 /// Clears the badge value of every leaf icon and settles the views popped above.
@@ -25,6 +25,10 @@ void LEMBadgeClearAll(void);
 /// has something to wipe. Read by the spread to know whether any badge will
 /// fade out, and so whether the tap is due.
 BOOL LEMBadgeHasBadges(void);
+
+/// The share of its icon's beat a badge takes to fade out. The bubbles are gone
+/// well before their icons have finished returning, which is what the tap marks.
+extern const NSTimeInterval LEMBadgePopBeatShare;
 
 /// Installs the badge hooks: the reuse resets of the badge view, the gate that
 /// drops a badge count Lemon has already cleared, and the observation of every

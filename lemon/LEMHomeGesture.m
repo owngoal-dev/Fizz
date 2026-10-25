@@ -128,10 +128,11 @@ static void LEMRunSpread(UIView *hostView) {
     BOOL clearingBadges = LEMFeatureEnabled() && LEMBadgeHasBadges();
     NSUInteger generation = ++gSpreadGeneration;
     NSTimeInterval settle = LEMIconRippleRun(hostView);
+    NSTimeInterval tapAt = LEMIconRippleBadgeFinish(settle);
     if (clearingBadges && settle > 0) {
-        // The farthest bubble is gone exactly as the wave settles, so the tap
-        // lands there; a spread that took over in the meantime fires its own.
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(settle * NSEC_PER_SEC)),
+        // The last bubble is gone a share of the beat before the wave settles, and
+        // that is where the tap lands; a spread that took over fires its own.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(tapAt * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
                            if (generation != gSpreadGeneration) {
                                return;

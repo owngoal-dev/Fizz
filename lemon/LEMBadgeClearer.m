@@ -297,10 +297,12 @@ void LEMBadgeInstallWatchers(void) {
 
 #pragma mark - Views
 
-// A badge leaves on the same beat as its icon: it grows while it fades out, over
-// the same duration and with the same per-icon delay. Nothing else is done to it,
-// because the finer detail of a pop is over before it can be seen.
+// A badge leaves on the beat of its icon: it grows while it fades out, on the
+// same per-icon delay, and nothing else is done to it.
 static const CGFloat LEMBadgePopScale = 1.45;
+
+// Half the beat: the bubble is gone while its icon is still on the way back.
+const NSTimeInterval LEMBadgePopBeatShare = 0.5;
 
 // Where the badge is on screen right now. A badge that is popped again while its
 // first bubble is still in the air continues from that size and that opacity
@@ -375,7 +377,10 @@ void LEMBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInte
     if (!gPoppingBadgeViews) {
         gPoppingBadgeViews = [NSHashTable weakObjectsHashTable];
     }
-    LEMBadgePopTree(iconView, badgeClass, duration, CACurrentMediaTime() + delay);
+    // Half the icon's beat, so the bubble is seen disappearing instead of
+    // lingering for the whole return leg.
+    LEMBadgePopTree(iconView, badgeClass, duration * LEMBadgePopBeatShare,
+                    CACurrentMediaTime() + delay);
 }
 
 // Runs once the ripple is over: a badge whose icon is still badged would pop back

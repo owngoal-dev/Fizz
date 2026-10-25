@@ -74,9 +74,7 @@ static const NSInteger LEMSwitchCellType = 6;
 - (NSArray *)specifiers {
     if (!_specifiers) {
         PSSpecifier *gestures = [PSSpecifier groupSpecifierWithName:@"手势"];
-        [gestures setProperty:@"主屏幕双指外扩：图标向外扩散，同时清除所有角标；"
-                             @"角标边放大边淡出，最后一个淡完时轻点一下。关闭后手势不再响应。"
-                       forKey:@"footerText"];
+        [gestures setProperty:@"双指外扩清除所有角标。" forKey:@"footerText"];
 
         PSSpecifier *badges = [PSSpecifier groupSpecifierWithName:@"角标"];
         [badges setProperty:@"App 打开或退到后台时仍会重新上报角标。打开本项后，与已清除数字相同的旧值会被忽略，"

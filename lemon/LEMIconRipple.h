@@ -32,4 +32,9 @@ void LEMIconRippleEndFollow(BOOL animated);
 /// long the whole wave takes, or 0 when no icon was animated.
 NSTimeInterval LEMIconRippleRun(UIView *hostView);
 
+/// How long after the wave starts the last badge is gone, from the settle time
+/// LEMIconRippleRun returned. The bubbles fade out over half the beat, so this
+/// comes well before the wave ends.
+NSTimeInterval LEMIconRippleBadgeFinish(NSTimeInterval settle);
+
 NS_ASSUME_NONNULL_END

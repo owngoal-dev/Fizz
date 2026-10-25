@@ -46,7 +46,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 只在气泡消失的那一刻点一下，用系统自带的 `UIImpactFeedbackGenerator`（`Light`），没有任何自定义节奏，手势本身不震。
 
 - 触发条件：手势真的触发了涟漪，并且触发时主屏还有角标可清（`LEMBadgeHasBadges()` 为 YES、全局开关打开）。没有角标就没有淡出收尾，也就不点。
-- 时机：`LEMRunSpread` 先拿到涟漪的 `settle`（0.5 秒动画 + 最多 0.1 秒延迟），用 `dispatch_after` 把这一下排到 `settle` 到点的时刻——正是最远那批徽章淡出完、涟漪收定的瞬间。排在了清空数据的 `settle + 0.02` 之前一点，所以点下去时气泡还在视野里。
+- 时机：`LEMRunSpread` 从涟漪的 `settle` 反推出最后一枚气泡消失的时刻（`LEMIconRippleBadgeFinish`，0.5 秒 × 一半 + 最多 0.1 秒延迟 ≈ 0.35 秒），用 `dispatch_after` 把这一下排在那里，排在了清空数据的 `settle + 0.02`（0.62 秒）之前很多，所以点下去时气泡还在视野里，而图标还在回位。
 - 连打不叠加：排队前记下本轮 `gSpreadGeneration`，到点时若已有新的一轮接管就放弃，由新一轮自己排它那一下，因此不会连响、也不会提前响。
 - `lemon/LEMHaptics.m` 只留一个生成器：`UIImpactFeedbackStyleLight`，第一次用时建出来，播完立刻 `prepare` 重新武装，下一次不用等硬件唤醒。
 - 主屏出现时 `LEMHapticsPrewarm()` 先 `prepare` 一次，第一次手势的那一下也是热的。
@@ -55,7 +55,7 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 
 ## 气泡消失
 
-徽章跟着涟漪的节拍一起走：`LEMBadgePopWithRipple` 拿到和图标完全相同的时长（0.5 秒）与延迟（最多 0.1 秒），每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的图标（延迟 0.1 秒）在 0.60 淡完，与 `settle` 到点的那一下触感同一时刻，数据清空在 0.62。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
+徽章跟着涟漪的节拍一起走：`LEMBadgePopWithRipple` 拿到和图标相同的延迟（最多 0.1 秒），时长只取图标的一半（`LEMBadgePopBeatShare = 0.5`，0.25 秒）。每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的图标（延迟 0.1 秒）在 0.35 秒就淡完，比图标回位早得多，触感那一下也落在这一刻，数据清空仍在 0.62。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
 
 ## 接入与 hooks
 
