@@ -124,14 +124,17 @@ static void LEMRunSpread(UIView *hostView) {
 // which is well after the fingers have started to open, so everything before
 // that used to be lost and the wave only began once the spread was already
 // under way. The touches are measured directly instead: from the second finger
-// landing, the span between the two fingers carries the icons outwards, and
-// crossing the trigger distance hands that movement over to the wave, which
-// continues from wherever the icons are.
+// landing, the span between the two fingers carries the icons outwards.
+//
+// Nothing else happens while the fingers are still down. The wave, the badges
+// and the clear all belong to the release: a spread that is let go with the
+// span at or past the trigger distance gets the out-and-back wave and the
+// clear, and one that is let go short of it only returns the icons.
 static const CGFloat LEMSpreadTriggerSpan = 40.0;
 
 static BOOL gSpreadFollowing = NO;
-static BOOL gSpreadTriggered = NO;
 static CGFloat gSpreadBaseSpan = 0;
+static CGFloat gSpreadSpan = 0;
 
 static NSArray<UITouch *> *LEMSpreadLiveTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
     NSMutableArray<UITouch *> *live = [NSMutableArray array];
@@ -159,17 +162,51 @@ static CGFloat LEMSpreadSpan(UIPinchGestureRecognizer *recognizer, NSArray<UITou
     return hypot(first.x - second.x, first.y - second.y);
 }
 
-static void LEMSpreadFinish(UIPinchGestureRecognizer *recognizer) {
-    // A spread that never crossed the trigger lets the icons settle back; one
-    // that did leaves its wave running and is already followed by the icons
-    // themselves.
-    if (gSpreadFollowing && !gSpreadTriggered) {
-        LEMIconRippleEndFollow(YES);
+// Where the fingers were when they left the screen. The touch that ended is
+// still part of the set during touchesEnded, so the position it was lifted at is
+// measured instead of the last one from before the lift.
+static CGFloat LEMSpreadReleaseSpan(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
+    UIView *view = recognizer.view;
+    if (!view || !event) {
+        return 0;
+    }
+    NSMutableArray<UITouch *> *touches = [NSMutableArray array];
+    for (UITouch *touch in [event touchesForGestureRecognizer:recognizer]) {
+        if (touch.phase == UITouchPhaseCancelled) {
+            continue;
+        }
+        [touches addObject:touch];
+    }
+    return LEMSpreadSpan(recognizer, touches);
+}
+
+// The gesture is over: either the fingers were let go with the span at the
+// trigger distance, which starts the wave and the clear, or they let go short of
+// it and the icons only go back where they came from. A cancelled gesture never
+// counts, however far it got.
+static void LEMSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released) {
+    if (!gSpreadFollowing) {
+        LEMRestoreScrollPan(recognizer);
+        return;
     }
     gSpreadFollowing = NO;
-    gSpreadTriggered = NO;
+
+    BOOL reached = NO;
+    if (released) {
+        // A gesture whose touches were never measured has no span to compare;
+        // the recognizer's own scale is then the only evidence there is.
+        reached = gSpreadSpan > 0 ? (gSpreadSpan - gSpreadBaseSpan) >= LEMSpreadTriggerSpan
+                                  : recognizer.scale > 1.02;
+    }
     gSpreadBaseSpan = 0;
+    gSpreadSpan = 0;
     LEMRestoreScrollPan(recognizer);
+
+    if (reached && recognizer.view && LEMFeatureEnabled()) {
+        LEMRunSpread(recognizer.view);
+        return;
+    }
+    LEMIconRippleEndFollow(YES);
 }
 
 static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
@@ -182,28 +219,23 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
     }
     NSArray<UITouch *> *touches = LEMSpreadLiveTouches(recognizer, event);
     if (touches.count < 2) {
-        LEMSpreadFinish(recognizer);
+        LEMSpreadFinish(recognizer, YES);
         return;
     }
     CGFloat span = LEMSpreadSpan(recognizer, touches);
     if (!gSpreadFollowing) {
         gSpreadFollowing = YES;
-        gSpreadTriggered = NO;
         gSpreadBaseSpan = span;
+        gSpreadSpan = span;
         LEMSuppressScrollPan(recognizer);
         LEMIconRippleBeginFollow(hostView);
         return;
     }
-    if (gSpreadTriggered) {
-        return;
-    }
-    CGFloat progress = (span - gSpreadBaseSpan) / LEMSpreadTriggerSpan;
-    if (progress >= 1.0) {
-        gSpreadTriggered = YES;
-        LEMRunSpread(hostView);
-        return;
-    }
-    LEMIconRippleUpdateFollow(progress);
+    // The icons keep following the fingers past the trigger distance, so a
+    // spread the user holds open stays where they left it instead of stopping
+    // partway; the wave picks that position up when the fingers come off.
+    gSpreadSpan = span;
+    LEMIconRippleUpdateFollow((span - gSpreadBaseSpan) / LEMSpreadTriggerSpan);
 }
 
 // Measures the fingers itself before UIKit's own pinch threshold is reached.
@@ -226,18 +258,25 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
 }
 
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    // The position the fingers were lifted at decides whether the spread
+    // counts, so it is measured before the recognizer's state machine can end
+    // the gesture.
+    CGFloat span = LEMSpreadReleaseSpan(self, event);
+    if (span > 0 && gSpreadFollowing) {
+        gSpreadSpan = span;
+    }
     [super touchesEnded:touches withEvent:event];
     LEMSpreadTrackTouches(self, event);
 }
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [super touchesCancelled:touches withEvent:event];
-    LEMSpreadFinish(self);
+    LEMSpreadFinish(self, NO);
 }
 
 - (void)reset {
     [super reset];
-    LEMSpreadFinish(self);
+    LEMSpreadFinish(self, NO);
 }
 
 @end
@@ -283,17 +322,20 @@ static void LEMSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent 
     }
     UIGestureRecognizerState state = recognizer.state;
     if (state == UIGestureRecognizerStateBegan) {
-        LEMSuppressScrollPan(recognizer);
-        // The touches normally drive the spread before this state is reached.
-        // This is the fallback for a gesture whose touches were never measured.
-        if (!gSpreadFollowing && !gSpreadTriggered && recognizer.view && recognizer.scale > 1.0) {
-            gSpreadTriggered = YES;
-            LEMRunSpread(recognizer.view);
+        // The touches normally open the follow leg before this state is
+        // reached; this keeps the pan out of the way when they did not, and the
+        // release still decides whether the spread counts.
+        if (!gSpreadFollowing) {
+            gSpreadFollowing = YES;
+            gSpreadBaseSpan = 0;
+            gSpreadSpan = 0;
+            LEMSuppressScrollPan(recognizer);
         }
-    } else if (state == UIGestureRecognizerStateEnded ||
-               state == UIGestureRecognizerStateCancelled ||
+    } else if (state == UIGestureRecognizerStateEnded) {
+        LEMSpreadFinish(recognizer, YES);
+    } else if (state == UIGestureRecognizerStateCancelled ||
                state == UIGestureRecognizerStateFailed) {
-        LEMSpreadFinish(recognizer);
+        LEMSpreadFinish(recognizer, NO);
     }
 }
 

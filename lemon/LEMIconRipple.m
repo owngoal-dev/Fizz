@@ -34,8 +34,11 @@ static const NSTimeInterval LEMRippleMaximumDelay = 0.1;
 static const CGFloat LEMRippleOutKeyTime = 0.42;
 static const NSUInteger LEMRippleMaximumDepth = 8;
 // How much of the full offset the fingers carry the icons before the wave takes
-// over; the wave finishes the outward leg from there.
+// over; the wave finishes the outward leg from there. Past the trigger distance
+// the icons keep following up to a second, larger share, so a spread that is
+// held open stays where the fingers left it.
 static const CGFloat LEMRippleFollowShare = 0.55;
+static const CGFloat LEMRippleFollowMaximumShare = 0.85;
 static const NSTimeInterval LEMRippleReturnDuration = 0.18;
 
 static NSString *const LEMRippleTranslationKeyX = @"transform.translation.x";
@@ -199,7 +202,10 @@ void LEMIconRippleUpdateFollow(CGFloat progress) {
     if (count == 0) {
         return;
     }
-    CGFloat share = LEMRippleFollowShare * fmin(fmax(progress, 0.0), 1.0);
+    // `progress` runs past 1 once the fingers are at the trigger distance: the
+    // icons then keep easing outwards, but only as far as the follow leg is
+    // allowed to go, so the wave still has somewhere to travel.
+    CGFloat share = fmin(LEMRippleFollowShare * fmax(progress, 0.0), LEMRippleFollowMaximumShare);
     gFollowShare = share;
     for (NSUInteger index = 0; index < count; index++) {
         CGPoint offset = [gFollowOffsets[index] CGPointValue];

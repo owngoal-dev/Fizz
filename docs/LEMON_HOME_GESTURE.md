@@ -20,13 +20,16 @@
 pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子类）。UIKit 的 pinch 要等手指跨过它自己的阈值才进 `Began`，那之前的扩张完全拿不到，所以跟手不看它的状态，而是自己在 `touchesBegan`/`touchesMoved` 里量两指距离：
 
 - 第二指落下时记下当时的指距作为基线，同时压制 pan 并调用 `LEMIconRippleBeginFollow` 收集本轮参与的图标。
-- 之后每次移动按 `(当前指距 − 基线) / 40pt` 算进度（0…1），交给 `LEMIconRippleUpdateFollow`：每个图标沿“图标中心减 window 中心”的方向按满程 26pt 的 55% 跟手外移。指距缩回则进度回落，夹在 0 以上。
-- 进度到 1 就以 `LEMRunSpread` 起一波涟漪。`LEMIconRippleRun` 先读回图标当前所在位置作为动画起点，所以交接处没有跳变。`Began` 里 `scale > 1.0` 的触发只在从未量到指距（touches 没送到 recognizer）时兜底。
-- 没到阈值就松手，`LEMIconRippleEndFollow(YES)` 用 0.18 秒 ease-out 把图标送回原位；到了阈值的松手不再处理，涟漪自己跑完。
+- 之后每次移动按 `(当前指距 − 基线) / 40pt` 算进度，交给 `LEMIconRippleUpdateFollow`：每个图标沿“图标中心减 window 中心”的方向按满程 26pt 的 55% 跟手外移。指距缩回则进度回落，夹在 0 以上。
+- 手指还按着的时候只有跟手，没有涟漪、没有触感、不清角标。进度超过 1 之后图标继续缓出，但最多到满程的 85%（`LEMRippleFollowMaximumShare`），所以攥着不放也是停在那里，不会跑满。
+- 触发只看松手那一刻：`touchesEnded` 先用 `LEMSpreadReleaseSpan` 量出抬指位置（此时被抬起的 `UITouch` 还在 `touchesForGestureRecognizer:` 里，位置是抬起点，不是抬手前最后一次移动的位置），再交回手势状态机。
+- 抬起时的指距比基线大 40pt 以上，就用 `LEMRunSpread` 起一波涟漪；`LEMIconRippleRun` 先读回图标当前所在位置作为动画起点，所以跟手到涟漪的交接没有跳变，外层再配角标清除。
+- 抬起时没有到阈值，只是 `LEMIconRippleEndFollow(YES)` 用 0.18 秒 ease-out 把图标送回原位，不起涟漪、不出触感、不清角标。
+- `Cancelled`/`Failed`/`reset` 一律按“不算数”处理，无论当时指距多远。
 
 ## 图标涟漪
 
-`LEMIconRippleRun` 由跟手进度到时（或兜底路径）调用，内收手势不改数据也不做动画。
+`LEMIconRippleRun` 由松手且指距过阈值时调用，内收手势不改数据也不做动画。
 
 - 锚点是 `SBIconScrollView` 所在 window 的中心；图标按“图标中心减锚点”的向量方向外移，位移量与距离成正比，最远图标移动 26pt。
 - 每个图标用两条 `CAKeyframeAnimation`（`transform.translation.x` / `.y`）走起点 → 偏移 → 0，关键时间点 0 / `0.42 × (1 − 起点占比)` / 1，`EaseInEaseOut`，总时长 0.5s；延迟按距离归一化后最多 0.1s，整体约 0.6s，视觉上从中间向外扩散。`fillMode` 设为 `kCAFillModeBackwards`，延迟期间图标停在起点，不会先弹回原位。
@@ -79,4 +82,4 @@ pinch recognizer 是 `LEMSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子
 
 ## 验证要点
 
-手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移；跨过阈值后图标继续扩散再回位，同时有一段跟着涟漪走的触感；有角标可清时，角标像气泡一样涨大后破掉，最后一批破完的同时补一下清脆的“咯噔”，没有角标时只有 0.62 秒的基础节奏；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
+手工观察：双指开始外扩、还没到阈值时图标就跟着手一起往外走，页面不位移；手指按住不放时只有跟手，没有涟漪、没有触感、角标不清；松开时指距过阈值才扩散回位、出触感，有角标可清时角标像气泡一样涨大后破掉，最后一批破完的同时补一下清脆的“咯噔”，没有角标时只有 0.62 秒的基础节奏；指距没到阈值就松开只原样回弹，触感和角标都不动；连做几次外扩时图标不会跳回原位重来，动作是从当前位置接下去的；内收不触发；设置里关掉“启用”后手势、触感与角标清除都不响应，关掉“触感反馈”只停震动、手势照常，重新打开立即恢复。自动化只做构建、安装和加载确认，不代用户做手势。
