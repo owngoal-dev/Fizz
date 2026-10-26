@@ -11,12 +11,13 @@
 
 ## 面板外观
 
-表格顶部有一个 banner（`FIZZBannerView`），挂在 `tableHeaderView` 上，因此随列表滚走、不遮挡内容，高度由内部尺寸算出为 `FIZZBannerHeight = 146`（上 12 + 卡片 128 + 下 6）：
+表格顶部有一个 banner（`FIZZBannerView`），挂在 `tableHeaderView` 上，因此随列表滚走、不遮挡内容。高度不写死，由 `heightForWidth:` 按宽度算：上 12 + 卡片 + 下留白。
 
-- 卡片左右各留 16，圆角 18（continuous），1 像素描边；卡片内从上到下：16 上留白、图标 50、间隔 12、分隔线 1、间隔 9、开关行 31（正好是 `UISwitch` 的高度）、9 下留白。
+- 卡片左右各留 16，圆角 18（continuous），1 像素描边；卡片内从上到下：16 上留白、内容区（图标 50 与“标题 + 副标题”文字块取较高者）、间隔 12、分隔线 1、间隔 9、开关行 31（正好是 `UISwitch` 的高度）、9 下留白。英文单行副标题时内容区就是 50，卡片 128、整块 header 146。
 - 卡片底色是 `CAGradientLayer` 对角渐变：浅色模式 `#F5F7FF → #E7FBF6`，深色模式 `#191C28 → #0E211E`；`traitCollectionDidChange:` 里换色，并用 `CATransaction` 关掉隐式动画。
 - 左边 50×50 的图标用 ImageIO 直接读 bundle 里的 `banner@3x.png` 塞进 `layer.contents`（`kCAGravityResizeAspect`），不走 `imageNamed:inBundle:`，以免被解析到 Settings 主 bundle。
-- 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。标题行高 26、副标题行高 16，两者合成一块 42 高的文字块，按图标中线（`FIZZBannerPadding + 25`）居中，所以文字块顶部在卡片内 20 处，而不是和图标上沿对齐。
+- 右边：22 号粗体 `Fizz` 固定一行 26，下面 12.5 号副标题“双指外扩，角标随图标一起散开”。副标题 `numberOfLines = 0`、`NSLineBreakByWordWrapping`，不再 `adjustsFontSizeToFitWidth`：文字宽度按 `卡宽 - 16 - 50 - 14 - 16` 算，用 `boundingRectWithSize:` 量出一行 16 起步的实际高度，长语言（例如德语）换到第二行时卡片随之变高，分隔线和开关行一起下移。标题 + 副标题作为一块，在内容区里垂直居中，图标也在内容区居中，所以单行时文字块顶部仍在卡片内 20 处。
+- 卡片下的留白按系统版本区分（`FIZZBannerBottomInset()`）：iOS 17 及以后用 6，因为系统自己会在 table header 与第一组之间再留约 22；iOS 16 用 28，因为那里的第一组紧贴 header，不留这 22。这样 banner 卡片到下方分组的间距在两个系统上一致（iOS 16 实测改前只有 6，紧贴）。
 - 分隔线下是全局开关行：左边 17 号常规字重的“启用”（与下方列表行标题同字号），右边 `UISwitch`（`onTintColor` 是青绿 accent）。它就是总开关本身，直接读写 `com.fizz.ripple` 的 `Enabled`，不再是表里的一行，所以不会经过 specifier 的 set/get。
 - 卡片里不再显示“乌龙工作室”和版本号；版本只出现在包信息里。工作室落款改到面板最底部单独一组，与工作室其他面板（例如 `SingleVPNPrefs`）一致：无标题分组 + `support_footer` footer，下面一行 `PSButtonCell`（PSCellType 13），文案是 `support_button`，点击打开 `FIZZSupportURL`（`https://havoc.app/search/82Flex`，与工作室其他插件同一个落地页）。按钮动作靠 specifier 的 `action` 属性（`fizzSupport:`），由 `PSListController` 自己派发，和 plist 里写的 `action` 完全等价。
 

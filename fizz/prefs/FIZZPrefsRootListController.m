@@ -97,18 +97,35 @@ static CGImageRef FIZZCreateBannerIcon(void) {
 
 static const CGFloat FIZZBannerSideInset = 16.0;
 static const CGFloat FIZZBannerTopInset = 12.0;
-static const CGFloat FIZZBannerBottomInset = 6.0;
 static const CGFloat FIZZBannerPadding = 16.0;
 static const CGFloat FIZZBannerIconSide = 50.0;
 static const CGFloat FIZZBannerTitleHeight = 26.0;
 static const CGFloat FIZZBannerSubtitleHeight = 16.0;
 static const CGFloat FIZZBannerSwitchRowHeight = 31.0;
 static const CGFloat FIZZBannerSwitchRowInset = 9.0;
+static const CGFloat FIZZBannerDividerGap = 12.0;
 
-// Padding, icon, gap, divider, gap, switch row, gap.
-static const CGFloat FIZZBannerCardHeight = 16.0 + 50.0 + 12.0 + 1.0 + FIZZBannerSwitchRowInset +
-                                           FIZZBannerSwitchRowHeight + FIZZBannerSwitchRowInset;
-static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeight + FIZZBannerBottomInset;
+// The switch row under the divider: gap, row, gap.
+static const CGFloat FIZZBannerSwitchBlockHeight = FIZZBannerSwitchRowInset + FIZZBannerSwitchRowHeight +
+                                                  FIZZBannerSwitchRowInset;
+
+// The space the banner leaves under its card. iOS 17 adds about 22 points of its
+// own between the table header and the first section, iOS 16 puts the section
+// straight under it, so the banner carries that distance itself there to keep
+// the same gap between the card and the rows below on both.
+static CGFloat FIZZBannerBottomInset(void) {
+    if (@available(iOS 17.0, *)) {
+        return 6.0;
+    }
+    return 28.0;
+}
+
+// Top inset, card with the taller of the icon and the text, divider and switch.
+static CGFloat FIZZBannerHeightForContent(CGFloat contentHeight) {
+    return FIZZBannerTopInset + FIZZBannerPadding + contentHeight + FIZZBannerDividerGap + 1.0 +
+           FIZZBannerSwitchBlockHeight + FIZZBannerBottomInset();
+}
+
 
 // One accent for every switch in the pane: the global switch in the card and
 // the rows below it share a tint instead of the system green.
@@ -134,6 +151,8 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
 // The card at the top of the pane: the icon, the name of the package, what the
 // gesture does in one line, and the global switch on the row under the divider.
 @interface FIZZBannerView : UIView
+// Height of the whole header for a given width, the subtitle wrapping included.
+- (CGFloat)heightForWidth:(CGFloat)width;
 @end
 
 @implementation FIZZBannerView {
@@ -187,8 +206,10 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
     _subtitleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
     _subtitleLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightRegular];
     _subtitleLabel.text = FIZZLocalizedString(@"banner_subtitle", @"Spread two fingers to send the badges out with the icons");
-    _subtitleLabel.adjustsFontSizeToFitWidth = YES;
-    _subtitleLabel.minimumScaleFactor = 0.8;
+    // A longer translation wraps onto a second line and the card grows taller,
+    // instead of shrinking the text until it no longer reads.
+    _subtitleLabel.numberOfLines = 0;
+    _subtitleLabel.lineBreakMode = NSLineBreakByWordWrapping;
     [_card addSubview:_subtitleLabel];
 
     _divider = [[UIView alloc] initWithFrame:CGRectZero];
@@ -254,34 +275,66 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
     CFPreferencesAppSynchronize((__bridge CFStringRef)FIZZPreferencesDomain);
 }
 
+- (CGFloat)textWidthForCardWidth:(CGFloat)cardWidth {
+    CGFloat textLeft = FIZZBannerPadding + FIZZBannerIconSide + 14.0;
+    return MAX(0.0, cardWidth - textLeft - FIZZBannerPadding);
+}
+
+// One line is the minimum the label reserves; a wrapped subtitle asks for more
+// and the card, the divider and the switch row below it all move down with it.
+- (CGFloat)subtitleHeightForWidth:(CGFloat)width {
+    NSString *text = _subtitleLabel.text ?: @"";
+    CGRect rect = [text boundingRectWithSize:CGSizeMake(width, CGFLOAT_MAX)
+                                     options:NSStringDrawingUsesLineFragmentOrigin
+                                  attributes:@{ NSFontAttributeName : _subtitleLabel.font }
+                                     context:nil];
+    return MAX(FIZZBannerSubtitleHeight, ceil(CGRectGetHeight(rect)));
+}
+
+- (CGFloat)contentHeightForCardWidth:(CGFloat)cardWidth {
+    CGFloat textHeight = FIZZBannerTitleHeight +
+                         [self subtitleHeightForWidth:[self textWidthForCardWidth:cardWidth]];
+    return MAX(FIZZBannerIconSide, textHeight);
+}
+
+- (CGFloat)heightForWidth:(CGFloat)width {
+    if (width <= 0.0) {
+        return 0.0;
+    }
+    CGFloat contentHeight = [self contentHeightForCardWidth:width - FIZZBannerSideInset * 2.0];
+    return FIZZBannerHeightForContent(contentHeight);
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
 
     CGFloat width = CGRectGetWidth(self.bounds);
-    _card.frame = CGRectMake(FIZZBannerSideInset, FIZZBannerTopInset,
-                             width - FIZZBannerSideInset * 2.0, FIZZBannerCardHeight);
+    CGFloat cardWidth = width - FIZZBannerSideInset * 2.0;
+    CGFloat textLeft = FIZZBannerPadding + FIZZBannerIconSide + 14.0;
+    CGFloat textWidth = [self textWidthForCardWidth:cardWidth];
+    CGFloat textHeight = FIZZBannerTitleHeight + [self subtitleHeightForWidth:textWidth];
+    CGFloat contentHeight = MAX(FIZZBannerIconSide, textHeight);
+    CGFloat cardHeight = FIZZBannerPadding + contentHeight + FIZZBannerDividerGap + 1.0 +
+                         FIZZBannerSwitchBlockHeight;
+
+    _card.frame = CGRectMake(FIZZBannerSideInset, FIZZBannerTopInset, cardWidth, cardHeight);
 
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     _gradient.frame = _card.bounds;
     [CATransaction commit];
 
-    CGFloat cardWidth = CGRectGetWidth(_card.bounds);
-    CGFloat textLeft = FIZZBannerPadding + FIZZBannerIconSide + 14.0;
-    CGFloat textWidth = cardWidth - textLeft - FIZZBannerPadding;
-    CGFloat textHeight = FIZZBannerTitleHeight + FIZZBannerSubtitleHeight;
-
-    CGFloat iconMidY = FIZZBannerPadding + FIZZBannerIconSide / 2.0;
-    _iconView.frame = CGRectMake(FIZZBannerPadding, FIZZBannerPadding,
-                                 FIZZBannerIconSide, FIZZBannerIconSide);
     // Title and subtitle are one block, its centre on the icon's midline, so the
     // pair reads as vertically aligned with the artwork beside it.
-    CGFloat textTop = iconMidY - textHeight / 2.0;
+    CGFloat textTop = FIZZBannerPadding + (contentHeight - textHeight) / 2.0;
+    _iconView.frame = CGRectMake(FIZZBannerPadding,
+                                 FIZZBannerPadding + (contentHeight - FIZZBannerIconSide) / 2.0,
+                                 FIZZBannerIconSide, FIZZBannerIconSide);
     _titleLabel.frame = CGRectMake(textLeft, textTop, textWidth, FIZZBannerTitleHeight);
     _subtitleLabel.frame = CGRectMake(textLeft, textTop + FIZZBannerTitleHeight,
-                                      textWidth, FIZZBannerSubtitleHeight);
+                                      textWidth, textHeight - FIZZBannerTitleHeight);
 
-    CGFloat dividerY = FIZZBannerPadding + FIZZBannerIconSide + 12.0;
+    CGFloat dividerY = FIZZBannerPadding + contentHeight + FIZZBannerDividerGap;
     _divider.frame = CGRectMake(FIZZBannerPadding, dividerY,
                                 cardWidth - FIZZBannerPadding * 2.0, 1.0 / UIScreen.mainScreen.scale);
 
@@ -296,7 +349,7 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
 }
 
 - (CGSize)sizeThatFits:(CGSize)size {
-    return CGSizeMake(size.width, FIZZBannerHeight);
+    return CGSizeMake(size.width, [self heightForWidth:size.width]);
 }
 
 @end
@@ -395,15 +448,16 @@ static UITableView *FIZZFindTableView(UIView *view) {
     }
     FIZZBannerView *banner = (FIZZBannerView *)table.tableHeaderView;
     if (![banner isKindOfClass:[FIZZBannerView class]]) {
-        banner = [[FIZZBannerView alloc] initWithFrame:CGRectMake(0, 0, width, FIZZBannerHeight)];
+        banner = [[FIZZBannerView alloc] initWithFrame:CGRectMake(0, 0, width, 0)];
+        banner.frame = CGRectMake(0, 0, width, [banner heightForWidth:width]);
         table.tableHeaderView = banner;
         return;
     }
-    if (CGRectGetWidth(banner.frame) != width) {
-        CGRect frame = banner.frame;
-        frame.size.width = width;
-        frame.size.height = FIZZBannerHeight;
-        banner.frame = frame;
+    // The height follows the width, because the subtitle wraps, so both are
+    // compared and the table is told again when either moved.
+    CGFloat height = [banner heightForWidth:width];
+    if (CGRectGetWidth(banner.frame) != width || CGRectGetHeight(banner.frame) != height) {
+        banner.frame = CGRectMake(0, 0, width, height);
         table.tableHeaderView = banner;
     }
 }
