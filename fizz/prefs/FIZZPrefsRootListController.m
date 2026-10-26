@@ -39,6 +39,10 @@
     NSMutableArray *_specifiers;
 }
 - (NSArray *)specifiers;
+- (void)tableView:(UITableView *)tableView
+    willDisplayCell:(UITableViewCell *)cell
+    forRowAtIndexPath:(NSIndexPath *)indexPath;
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath;
 @end
 
 // PSCellType: PSSwitchCell = 6, PSButtonCell = 13.
@@ -105,6 +109,27 @@ static const CGFloat FIZZBannerSwitchRowInset = 9.0;
 static const CGFloat FIZZBannerCardHeight = 16.0 + 50.0 + 12.0 + 1.0 + FIZZBannerSwitchRowInset +
                                            FIZZBannerSwitchRowHeight + FIZZBannerSwitchRowInset;
 static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeight + FIZZBannerBottomInset;
+
+// One accent for every switch in the pane: the global switch in the card and
+// the rows below it share a tint instead of the system green.
+static UIColor *FIZZAccentColor(UITraitCollection *traits) {
+    if (traits.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        return [UIColor colorWithRed:0.310 green:0.882 blue:0.792 alpha:1.0];
+    }
+    return [UIColor colorWithRed:0.055 green:0.573 blue:0.510 alpha:1.0];
+}
+
+// The switches in the list are built by PSSwitchCell, so they are tinted after
+// the fact by walking the cell that is about to be shown.
+static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
+    if ([view isKindOfClass:[UISwitch class]]) {
+        ((UISwitch *)view).onTintColor = tint;
+        return;
+    }
+    for (UIView *subview in view.subviews) {
+        FIZZTintSwitchesInView(subview, tint);
+    }
+}
 
 // The card at the top of the pane: the icon, the name of the package, what the
 // gesture does in one line, and the global switch on the row under the divider.
@@ -191,10 +216,7 @@ static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeigh
 }
 
 - (UIColor *)accentColor {
-    if (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
-        return [UIColor colorWithRed:0.310 green:0.882 blue:0.792 alpha:1.0];
-    }
-    return [UIColor colorWithRed:0.055 green:0.573 blue:0.510 alpha:1.0];
+    return FIZZAccentColor(self.traitCollection);
 }
 
 - (void)updateColors {
@@ -305,6 +327,36 @@ static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeigh
     [self fizz_installBanner];
 }
 
+// A switch to dark mode repaints the banner through its own callback and the
+// list rows through the tint pass in fizz_installBanner.
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+        [self.view setNeedsLayout];
+    }
+}
+
+// PSSwitchCell builds the UISwitch itself, so its tint is set once the cell is
+// about to appear; scrolling back to a row repaints it the same way.
+- (void)tableView:(UITableView *)tableView
+    willDisplayCell:(UITableViewCell *)cell
+    forRowAtIndexPath:(NSIndexPath *)indexPath {
+    [super tableView:tableView willDisplayCell:cell forRowAtIndexPath:indexPath];
+    FIZZTintSwitchesInView(cell, FIZZAccentColor(self.traitCollection));
+}
+
+// The credit row is the only row of the second group. Preferences does not
+// dispatch a button action for a specifier built in code on this system, so the
+// tap is handled here instead of through the specifier's "action" property.
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 1 && indexPath.row == 0) {
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+        [self fizzSupport:nil];
+        return;
+    }
+    [super tableView:tableView didSelectRowAtIndexPath:indexPath];
+}
+
 static UITableView *FIZZFindTableView(UIView *view) {
     if ([view isKindOfClass:[UITableView class]]) {
         return (UITableView *)view;
@@ -329,6 +381,12 @@ static UITableView *FIZZFindTableView(UIView *view) {
     CGFloat width = CGRectGetWidth(table.bounds);
     if (width <= 0.0) {
         return;
+    }
+    // Rows already on screen do not get another willDisplayCell pass when the
+    // pane widens or the appearance changes.
+    UIColor *tint = FIZZAccentColor(self.traitCollection);
+    for (UITableViewCell *cell in table.visibleCells) {
+        FIZZTintSwitchesInView(cell, tint);
     }
     FIZZBannerView *banner = (FIZZBannerView *)table.tableHeaderView;
     if (![banner isKindOfClass:[FIZZBannerView class]]) {
