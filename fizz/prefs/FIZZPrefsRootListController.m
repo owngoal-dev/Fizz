@@ -336,12 +336,15 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
     }
 }
 
-// PSSwitchCell builds the UISwitch itself, so its tint is set once the cell is
-// about to appear; scrolling back to a row repaints it the same way.
+// PSListController does not implement every table delegate method on this
+// system, so a super call is made only where the method really exists:
+// messaging a missing superclass method aborts the whole Preferences process.
 - (void)tableView:(UITableView *)tableView
     willDisplayCell:(UITableViewCell *)cell
     forRowAtIndexPath:(NSIndexPath *)indexPath {
-    [super tableView:tableView willDisplayCell:cell forRowAtIndexPath:indexPath];
+    if ([PSListController instancesRespondToSelector:_cmd]) {
+        [super tableView:tableView willDisplayCell:cell forRowAtIndexPath:indexPath];
+    }
     FIZZTintSwitchesInView(cell, FIZZAccentColor(self.traitCollection));
 }
 
@@ -354,7 +357,9 @@ static void FIZZTintSwitchesInView(UIView *view, UIColor *tint) {
         [self fizzSupport:nil];
         return;
     }
-    [super tableView:tableView didSelectRowAtIndexPath:indexPath];
+    if ([PSListController instancesRespondToSelector:_cmd]) {
+        [super tableView:tableView didSelectRowAtIndexPath:indexPath];
+    }
 }
 
 static UITableView *FIZZFindTableView(UIView *view) {
@@ -435,7 +440,7 @@ static UITableView *FIZZFindTableView(UIView *view) {
         // that opens the studio page.
         PSSpecifier *support = [PSSpecifier groupSpecifierWithName:@""];
         [support setProperty:FIZZLocalizedString(@"support_footer",
-                                                 @"Please support our paid works, thank you!")
+                                                 @"This tweak was generated with the Apelin no-code platform.")
                    forKey:@"footerText"];
 
         PSSpecifier *supportButton =

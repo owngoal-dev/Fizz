@@ -49,7 +49,7 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 | `keep_cleared` | Keep Cleared | 角标维持 |
 | `banner_subtitle` | Spread two fingers to send the badges out with the icons | 双指外扩，角标随图标一起散开 |
 | `badges_footer` | Apps republish their badges … the old number may come back. | App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。 |
-| `support_footer` | Please support our paid works, thank you! | 请支持我们的其他付费作品，谢谢！ |
+| `support_footer` | This tweak was generated with the Apelin no-code platform. | 此插件通过 Apelin 零代码平台生成。 |
 | `support_button` | Made with ♥ by OwnGoal Studio | 「乌龙工作室」倾情献制 |
 
 - 查找走 `FIZZLocalizedString(key, fallback)`：对 `[NSBundle bundleForClass:FIZZPrefsRootListController]` 调 `localizedStringForKey:value:table:@"Localizable"`。不能用 `NSLocalizedString`，它查的是 Settings 主 bundle，拿不到面板自己的资源。

@@ -9,5 +9,5 @@
 "banner_subtitle" = "Separa dos dedos para que los distintivos salgan volando con los iconos";
 "badges_footer" = "Las apps vuelven a enviar sus distintivos al abrirse o al pasar a segundo plano. Con «Mantener distintivos borrados» activado, se ignora un número reenviado igual al borrado y un número nuevo se sigue mostrando; si está desactivado, el número anterior puede reaparecer.";
 
-"support_footer" = "¡Apoya nuestras otras obras de pago, gracias!";
+"support_footer" = "Este ajuste se generó con la plataforma sin código Apelin.";
 "support_button" = "Hecho con ♥ por OwnGoal Studio";

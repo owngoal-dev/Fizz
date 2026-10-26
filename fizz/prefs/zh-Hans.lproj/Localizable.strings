@@ -9,5 +9,5 @@
 "banner_subtitle" = "双指外扩，角标随图标一起散开";
 "badges_footer" = "App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。";
 
-"support_footer" = "请支持我们的其他付费作品，谢谢！";
+"support_footer" = "此插件通过 Apelin 零代码平台生成。";
 "support_button" = "「乌龙工作室」倾情献制";
