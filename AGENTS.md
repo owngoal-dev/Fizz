@@ -34,6 +34,7 @@
 ## Fizz 构建与验证
 
 - 插件名、包标识、设置域、os_log 子系统、动画 key 与 `FIZZ` 符号前缀全部是 Fizz；只有工程文件夹 `Lemon` 是 Apelin 分配的、不再更改的历史名字。产物是 `Fizz.dylib`、过滤器 `Fizz.plist`、`FizzPrefs.bundle` 和设置入口 `Fizz.plist`。
+- 最低系统是 iOS 15.0，不是 16：`apelin/build.sh` 对 dylib 和面板都传 `-miphoneos-version-min=15.0`，control 写 `Depends: firmware (>= 15.0), preferenceloader.top | preferenceloader`，过滤器 `Fizz.plist` 只限 `com.apple.springboard`、没有任何版本键。代码里唯一的版本分支是 banner 间距的 `@available(iOS 17.0, *)`，iOS 15/16 走同一支。用户已在 iOS 15.0 真机验证可用，引用兼容性时按 iOS 15.0 起写。
 - 本仓库通过 Apelin 的 external 构建工作区构建，入口固定在 `apelin/build.sh`，由 Apelin 的 `build` 工具带 `APELIN_PACKAGE_DIR` 调用；不要引入 Theos，也不要安装 Theos。
 - 脚本编译 `fizz/*.m`，再单独编译设置面板（`fizz/prefs/FIZZPrefsRootListController.m` 与共享的 `fizz/FIZZPreferences.m`，`-bundle -undefined dynamic_lookup`），把 `fizz/prefs/*.lproj` 拷进面板 bundle，roothide 只出 `arm64e`，rootless 出 `arm64 arm64e`，最后写出一个 `.deb`（不再有 AHAP 资源，触感只用 UIKit 自带的 `UIImpactFeedbackGenerator`）。
 - 构建通过后按 `build` → `install` → `confirm_loaded`（SpringBoard，需要 respring）的顺序确认加载。只改设置面板时不用注销：`build` → `install`，再重新进入面板即可（面板只在打开时载入 bundle）。自动化只做到这里：手势、角标清空和设置开关的“第一次”效果留给用户手动触发并观察，agent 不为自检主动做会改变设备状态的操作。
