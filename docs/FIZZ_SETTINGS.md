@@ -18,7 +18,7 @@
 - 左边 50×50 的图标用 ImageIO 直接读 bundle 里的 `banner@3x.png` 塞进 `layer.contents`（`kCAGravityResizeAspect`），不走 `imageNamed:inBundle:`，以免被解析到 Settings 主 bundle。
 - 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。标题行高 26、副标题行高 16，两者合成一块 42 高的文字块，按图标中线（`FIZZBannerPadding + 25`）居中，所以文字块顶部在卡片内 20 处，而不是和图标上沿对齐。
 - 分隔线下是全局开关行：左边 17 号常规字重的“启用”（与下方列表行标题同字号），右边 `UISwitch`（`onTintColor` 是青绿 accent）。它就是总开关本身，直接读写 `com.fizz.ripple` 的 `Enabled`，不再是表里的一行，所以不会经过 specifier 的 set/get。
-- 卡片里不再显示“乌龙工作室”和版本号；版本只出现在包信息里。
+- 卡片里不再显示“乌龙工作室”和版本号；版本只出现在包信息里。工作室落款改到面板最底部单独一组，与工作室其他面板（例如 `SingleVPNPrefs`）一致：无标题分组 + `support_footer` footer，下面一行 `PSButtonCell`（PSCellType 13），文案是 `support_button`，点击打开 `FIZZSupportURL`（`https://havoc.app/search/82Flex`，与工作室其他插件同一个落地页）。按钮动作靠 specifier 的 `action` 属性（`fizzSupport:`），由 `PSListController` 自己派发，和 plist 里写的 `action` 完全等价。
 
 面板要拿到表格：`FIZZFindTableView()` 从 `self.view` 往下找第一个 `UITableView`（`PSListController` 的 `view` 可能本身就是表），宽度还没算出来时先跳过；`viewDidLoad` 异步装一次，`viewDidLayoutSubviews` 每次核对，宽度变了才重设，因此不会死循环。
 
@@ -40,7 +40,7 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 面板代码里不放任何中文字面量：所有可见文字都在 `fizz/prefs/<lang>.lproj/Localizable.strings`，代码里只留英文兜底值。
 
-已支持的 10 种语言（系统语言匹配不到时用 `en`）：`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`de`、`fr`、`es`、`ru`、`pt-BR`。每个语言的 `.strings` 都必须是同一组 5 个键：
+已支持的 10 种语言（系统语言匹配不到时用 `en`）：`en`、`zh-Hans`、`zh-Hant`、`ja`、`ko`、`de`、`fr`、`es`、`ru`、`pt-BR`。每个语言的 `.strings` 都必须是同一组 7 个键：
 
 | 键 | 英文（`en.lproj`） | 简体中文（`zh-Hans.lproj`） |
 | --- | --- | --- |
@@ -49,6 +49,8 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 | `keep_cleared` | Keep Cleared | 角标维持 |
 | `banner_subtitle` | Spread two fingers to send the badges out with the icons | 双指外扩，角标随图标一起散开 |
 | `badges_footer` | Apps republish their badges … the old number may come back. | App 打开或退到后台时仍会重新上报角标。打开“角标维持”后，与已清除数字相同的旧值会被忽略，新数字照常显示；关闭后旧数字可能再次出现。 |
+| `support_footer` | Please support our paid works, thank you! | 请支持我们的其他付费作品，谢谢！ |
+| `support_button` | Made with ♥ by OwnGoal Studio | 「乌龙工作室」倾情献制 |
 
 - 查找走 `FIZZLocalizedString(key, fallback)`：对 `[NSBundle bundleForClass:FIZZPrefsRootListController]` 调 `localizedStringForKey:value:table:@"Localizable"`。不能用 `NSLocalizedString`，它查的是 Settings 主 bundle，拿不到面板自己的资源。
 - `Info.plist` 的 `CFBundleDevelopmentRegion` 是 `en`；新增语言只要新建 `<lang>.lproj/Localizable.strings`，`apelin/build.sh` 会把所有 `*.lproj` 拷进 bundle，不需要登记。
@@ -61,7 +63,7 @@ App 打开会取回自己的角标数字，退到后台时又会把这个数字�
 
 ## 实现要点
 
-- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：一个无标题的 `groupSpecifierWithName:@""` 分组（带 `footerText`）加两个 `PSSwitchCell`（PSCellType 6）；总开关是 banner 卡片里的真实 `UISwitch`，不在 specifier 里。
+- 面板是 `PSListController` 的子类，specifier 全部在代码里构造，没有 `Root.plist`：一个无标题的 `groupSpecifierWithName:@""` 分组（带 `footerText`）加两个 `PSSwitchCell`（PSCellType 6），末尾再一组工作室落款（无标题分组 + `PSButtonCell`，PSCellType 13，带 `action`）；总开关是 banner 卡片里的真实 `UISwitch`，不在 specifier 里。
 - specifier 的 target 是控制器自身，set/get 走 `-setPreferenceValue:specifier:` 与 `-readPreferenceValue:`；写值用 `CFPreferencesSetAppValue` + `CFPreferencesAppSynchronize` 落到 `com.fizz.ripple`，读值复用 `FIZZPreferencesGetBool`，域和键只定义一次。
 - `Preferences.framework` 没有公开头文件，`PSListController`、`PSSpecifier` 的方法和 `PSSwitchCell` 常量都在这个 `.m` 里自行声明。关键是 `PSListController` 的 `_specifiers` ivar：表格渲染的是这个数组，子类必须把行写进它，而不是自己另开一个 ivar。声明里带上 `_specifiers` 后，编译器引用 `_OBJC_IVAR_$_PSListController._specifiers` 这个外部符号，由 Preferences 在加载时绑定；本机其他第三方面板（`DonutPrefs`、`HelloMemoryStatusPrefs`、`hello120hz`）用的是同一套写法。
 - 只写自己的 `_ownSpecifiers` 也能编译、面板标题也能出现，但表格永远零行，设置里看到的就是一个空列表。

@@ -41,8 +41,13 @@
 - (NSArray *)specifiers;
 @end
 
-// PSCellType: PSSwitchCell = 6.
+// PSCellType: PSSwitchCell = 6, PSButtonCell = 13.
 static const NSInteger FIZZSwitchCellType = 6;
+static const NSInteger FIZZButtonCellType = 13;
+
+// The credit row opens the studio page, the same place the studio's other
+// panes send it.
+static NSString *const FIZZSupportURL = @"https://havoc.app/search/82Flex";
 
 @interface FIZZPrefsRootListController : PSListController
 @end
@@ -367,10 +372,30 @@ static UITableView *FIZZFindTableView(UIView *view) {
                                               @"number may come back.")
                  forKey:@"footerText"];
 
+        // The studio credit closes the pane the way it closes the studio's other
+        // panes: an unlabelled group whose footer asks for support, and a button
+        // that opens the studio page.
+        PSSpecifier *support = [PSSpecifier groupSpecifierWithName:@""];
+        [support setProperty:FIZZLocalizedString(@"support_footer",
+                                                 @"Please support our paid works, thank you!")
+                   forKey:@"footerText"];
+
+        PSSpecifier *supportButton =
+            [PSSpecifier preferenceSpecifierNamed:FIZZLocalizedString(@"support_button",
+                                                                      @"Made with ♥ by OwnGoal Studio")
+                                           target:self
+                                              set:NULL
+                                              get:NULL
+                                           detail:nil
+                                             cell:FIZZButtonCellType
+                                             edit:nil];
+        [supportButton setProperty:@"fizzSupport:" forKey:@"action"];
+
         _specifiers = [@[
             rows, [self switchNamed:FIZZLocalizedString(@"haptics", @"Haptics") key:FIZZPreferencesHapticsKey],
             [self switchNamed:FIZZLocalizedString(@"keep_cleared", @"Keep Cleared")
-                          key:FIZZPreferencesKeepClearedKey]
+                          key:FIZZPreferencesKeepClearedKey],
+            support, supportButton
         ] mutableCopy];
     }
     return _specifiers;
@@ -389,6 +414,16 @@ static UITableView *FIZZFindTableView(UIView *view) {
     CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFPropertyListRef) @([value boolValue]),
                              (__bridge CFStringRef)FIZZPreferencesDomain);
     CFPreferencesAppSynchronize((__bridge CFStringRef)FIZZPreferencesDomain);
+}
+
+// PSButtonCell hands its tap to the selector named by the "action" property of
+// the specifier, the same way a plist-declared button does.
+- (void)fizzSupport:(PSSpecifier *)specifier {
+    NSURL *url = [NSURL URLWithString:FIZZSupportURL];
+    if (!url) {
+        return;
+    }
+    [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
 }
 
 @end

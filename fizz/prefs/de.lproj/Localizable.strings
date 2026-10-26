@@ -8,3 +8,6 @@
 "keep_cleared" = "Badges entfernt lassen";
 "banner_subtitle" = "Zwei Finger auseinanderziehen – die Badges fliegen mit den Symbolen nach außen";
 "badges_footer" = "Apps melden ihre Badges erneut, wenn sie geöffnet werden oder in den Hintergrund wechseln. Ist „Badges entfernt lassen“ an, wird eine erneut gemeldete Zahl ignoriert, wenn sie der entfernten entspricht; eine neue Zahl wird weiterhin angezeigt. Ist die Option aus, kann die alte Zahl zurückkehren.";
+
+"support_footer" = "Bitte unterstützen Sie unsere kostenpflichtigen Werke, vielen Dank!";
+"support_button" = "Mit ♥ gemacht von OwnGoal Studio";
