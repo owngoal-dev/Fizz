@@ -274,10 +274,10 @@ int main(void)
                                    stringByAppendingPathComponent:@"prefs"];
         NSArray<NSString *> *names = @[ @"icon.png", @"icon@2x.png", @"icon@3x.png" ];
         NSArray<NSNumber *> *sides = @[ @29.0, @58.0, @87.0 ];
-        // The pane's banner shows the same artwork at 50 points, which is larger
-        // than a list icon, so it gets its own sizes.
+        // The pane draws the banner at 50 points, so the assets carry exactly
+        // 1x, 2x and 3x of that size; a larger file would only be shrunk again.
         NSArray<NSString *> *bannerNames = @[ @"banner.png", @"banner@2x.png", @"banner@3x.png" ];
-        NSArray<NSNumber *> *bannerSides = @[ @75.0, @150.0, @225.0 ];
+        NSArray<NSNumber *> *bannerSides = @[ @50.0, @100.0, @150.0 ];
         for (NSUInteger index = 0; index < bannerNames.count; index++) {
             names = [names arrayByAddingObject:bannerNames[index]];
             sides = [sides arrayByAddingObject:bannerSides[index]];
