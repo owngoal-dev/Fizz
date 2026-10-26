@@ -91,6 +91,8 @@ static const CGFloat FIZZBannerTopInset = 12.0;
 static const CGFloat FIZZBannerBottomInset = 6.0;
 static const CGFloat FIZZBannerPadding = 16.0;
 static const CGFloat FIZZBannerIconSide = 50.0;
+static const CGFloat FIZZBannerTitleHeight = 26.0;
+static const CGFloat FIZZBannerSubtitleHeight = 16.0;
 static const CGFloat FIZZBannerSwitchRowHeight = 31.0;
 static const CGFloat FIZZBannerSwitchRowInset = 9.0;
 
@@ -240,11 +242,17 @@ static const CGFloat FIZZBannerHeight = FIZZBannerTopInset + FIZZBannerCardHeigh
     CGFloat cardWidth = CGRectGetWidth(_card.bounds);
     CGFloat textLeft = FIZZBannerPadding + FIZZBannerIconSide + 14.0;
     CGFloat textWidth = cardWidth - textLeft - FIZZBannerPadding;
+    CGFloat textHeight = FIZZBannerTitleHeight + FIZZBannerSubtitleHeight;
 
+    CGFloat iconMidY = FIZZBannerPadding + FIZZBannerIconSide / 2.0;
     _iconView.frame = CGRectMake(FIZZBannerPadding, FIZZBannerPadding,
                                  FIZZBannerIconSide, FIZZBannerIconSide);
-    _titleLabel.frame = CGRectMake(textLeft, FIZZBannerPadding - 1.0, textWidth, 26.0);
-    _subtitleLabel.frame = CGRectMake(textLeft, FIZZBannerPadding + 26.0, textWidth, 16.0);
+    // Title and subtitle are one block, its centre on the icon's midline, so the
+    // pair reads as vertically aligned with the artwork beside it.
+    CGFloat textTop = iconMidY - textHeight / 2.0;
+    _titleLabel.frame = CGRectMake(textLeft, textTop, textWidth, FIZZBannerTitleHeight);
+    _subtitleLabel.frame = CGRectMake(textLeft, textTop + FIZZBannerTitleHeight,
+                                      textWidth, FIZZBannerSubtitleHeight);
 
     CGFloat dividerY = FIZZBannerPadding + FIZZBannerIconSide + 12.0;
     _divider.frame = CGRectMake(FIZZBannerPadding, dividerY,

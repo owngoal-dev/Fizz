@@ -16,7 +16,7 @@
 - 卡片左右各留 16，圆角 18（continuous），1 像素描边；卡片内从上到下：16 上留白、图标 50、间隔 12、分隔线 1、间隔 9、开关行 31（正好是 `UISwitch` 的高度）、9 下留白。
 - 卡片底色是 `CAGradientLayer` 对角渐变：浅色模式 `#F5F7FF → #E7FBF6`，深色模式 `#191C28 → #0E211E`；`traitCollectionDidChange:` 里换色，并用 `CATransaction` 关掉隐式动画。
 - 左边 50×50 的图标用 ImageIO 直接读 bundle 里的 `banner@3x.png` 塞进 `layer.contents`（`kCAGravityResizeAspect`），不走 `imageNamed:inBundle:`，以免被解析到 Settings 主 bundle。
-- 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。
+- 右边两行：22 号粗体 `Fizz`，12.5 号副标题“双指外扩，角标随图标一起散开”。标题行高 26、副标题行高 16，两者合成一块 42 高的文字块，按图标中线（`FIZZBannerPadding + 25`）居中，所以文字块顶部在卡片内 20 处，而不是和图标上沿对齐。
 - 分隔线下是全局开关行：左边 17 号常规字重的“启用”（与下方列表行标题同字号），右边 `UISwitch`（`onTintColor` 是青绿 accent）。它就是总开关本身，直接读写 `com.fizz.ripple` 的 `Enabled`，不再是表里的一行，所以不会经过 specifier 的 set/get。
 - 卡片里不再显示“乌龙工作室”和版本号；版本只出现在包信息里。
 
