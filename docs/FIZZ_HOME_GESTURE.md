@@ -17,6 +17,15 @@
 - 单指拖动不受影响：手势结束即恢复 pan，普通翻页与下拉搜索仍由原来的 pan 处理。
 - pinch recognizer 在跟手开始时读一次全局开关；关闭开关不会移除 recognizer，下一次手势就能重新生效，不需要 respring。
 
+## 编辑态
+
+主屏进入编辑（图标抖动、角上出现删除按钮）时双指外扩一律不响应：没有跟手、没有涟漪、不动角标、不出触感，也不压制 `SBIconScrollView` 的 pan——编辑态下第二根手指属于拖动图标这件事，Fizz 不去抢。
+
+- 状态判定在 `FIZZHomeScreenIsEditing`：先问 `SBIconController` 的 `iconManager`（`SBHIconManager -isEditing`），再问 `SBIconController -isEditing`，最后才退到视图层——从 `SBIconScrollView` 往下最多 4 层找类名前缀为 `SBIconListView` 的视图并读它自己的 `isEditing`。只要图标侧有一个类真的实现了 `isEditing`，它的返回值就是结论，某个类没实现（不同系统版本不一样）才继续往下问，全部没实现才去翻视图。
+- 拦截点三处，都读实时状态而不是装 hook 时缓存：`FIZZSpreadTrackTouches` 进入时直接返回，所以编辑态下根本不会开始跟手；`FIZZSpreadFinish` 在松手时再查一次，防止“开始跟手之后才进入编辑态”这一路径把涟漪放出来；`gestureRecognizerShouldBegin:` 与 `handlePinch:` 也查，让 UIKit 自己的 pinch 状态机同步放弃。
+- recognizer 不会因为编辑态被移除，`isEditing` 每根手指落下时现读一次，退出编辑后下一次手势立刻恢复，不需要 respring。
+- 编辑态期间单指/双指拖动图标、翻页、下拉搜索都保持系统原样。
+
 ## 跟手与触发
 
 pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` 子类）。UIKit 的 pinch 要等手指跨过它自己的阈值才进 `Began`，那之前的扩张完全拿不到，所以跟手不看它的状态，而是自己在 `touchesBegan`/`touchesMoved` 里量两指距离：

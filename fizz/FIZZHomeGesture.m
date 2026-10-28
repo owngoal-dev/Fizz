@@ -14,6 +14,7 @@
 #import "FIZZHook.h"
 #import "FIZZLog.h"
 #import "FIZZPreferences.h"
+#import "FIZZSpringBoard.h"
 
 #import <UIKit/UIKit.h>
 #import <math.h>
@@ -112,6 +113,63 @@ static void FIZZSuppressScrollPan(UIPinchGestureRecognizer *recognizer) {
                            FIZZRestoreScrollPan(strongRecognizer);
                        }
                    });
+}
+
+#pragma mark - Editing state
+
+// A home screen being laid out is not the moment to send the icons anywhere: in
+// edit mode the second finger belongs to the drag that rearranges them, so the
+// spread keeps out of the way until the edit is closed.
+static BOOL FIZZObjectIsEditing(id object) {
+    SEL selector = @selector(isEditing);
+    if (!object || ![object respondsToSelector:selector]) {
+        return NO;
+    }
+    BOOL (*isEditing)(id, SEL) = (BOOL (*)(id, SEL))[object methodForSelector:selector];
+    return isEditing(object, selector);
+}
+
+// -[SBIconListView isEditing] is the state of the list itself, which is what the
+// jiggling icons on screen show. Only asked when the icon manager did not answer,
+// and never descended into: a list that answers covers everything inside it.
+static BOOL FIZZIconListIsEditing(UIView *view, NSUInteger depth) {
+    if (!view || depth > 4) {
+        return NO;
+    }
+    if ([NSStringFromClass([view class]) hasPrefix:@"SBIconListView"]) {
+        return FIZZObjectIsEditing(view);
+    }
+    for (UIView *child in view.subviews) {
+        if (FIZZIconListIsEditing(child, depth + 1)) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+// Edit mode is owned by the icon manager of the icon controller; the controller
+// itself carries the same state on the systems where it does, and the icon list
+// views on screen are the last resort.
+static BOOL FIZZHomeScreenIsEditing(UIView *hint) {
+    Class controllerClass = objc_getClass("SBIconController");
+    id controller = controllerClass ? [(id)controllerClass sharedInstance] : nil;
+    id iconManager = [controller respondsToSelector:@selector(iconManager)] ? [controller iconManager] : nil;
+    BOOL answered = NO;
+    if ([iconManager respondsToSelector:@selector(isEditing)]) {
+        answered = YES;
+        if (FIZZObjectIsEditing(iconManager)) {
+            return YES;
+        }
+    }
+    if ([controller respondsToSelector:@selector(isEditing)]) {
+        answered = YES;
+        if (FIZZObjectIsEditing(controller)) {
+            return YES;
+        }
+    }
+    // Nothing on the icon side answered, so the views are asked instead; when
+    // they did answer, their NO is the answer and the walk is skipped.
+    return answered ? NO : FIZZIconListIsEditing(hint, 0);
 }
 
 #pragma mark - Spread
@@ -240,7 +298,8 @@ static void FIZZSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released
     gSpreadSpan = 0;
     FIZZRestoreScrollPan(recognizer);
 
-    if (reached && recognizer.view && FIZZFeatureEnabled()) {
+    if (reached && recognizer.view && FIZZFeatureEnabled() &&
+        !FIZZHomeScreenIsEditing(recognizer.view)) {
         FIZZRunSpread(recognizer.view);
         return;
     }
@@ -249,6 +308,11 @@ static void FIZZSpreadFinish(UIPinchGestureRecognizer *recognizer, BOOL released
 
 static void FIZZSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent *event) {
     if (!FIZZFeatureEnabled()) {
+        return;
+    }
+    // In edit mode the fingers are arranging the icons: no follow, no pan
+    // suppression and no release to measure.
+    if (FIZZHomeScreenIsEditing(recognizer.view)) {
         return;
     }
     UIView *hostView = recognizer.view;
@@ -355,10 +419,16 @@ static void FIZZSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent
     return YES;
 }
 
+// The recognizer is installed for good and asked every time instead, so entering
+// or leaving edit mode takes effect on the next gesture without a respring.
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    return !FIZZHomeScreenIsEditing(gestureRecognizer.view);
+}
+
 - (void)handlePinch:(UIPinchGestureRecognizer *)recognizer {
     // The global switch leaves the recognizer installed, so turning it back on
     // takes effect on the next gesture without a respring.
-    if (!FIZZFeatureEnabled()) {
+    if (!FIZZFeatureEnabled() || FIZZHomeScreenIsEditing(recognizer.view)) {
         return;
     }
     UIGestureRecognizerState state = recognizer.state;

@@ -31,11 +31,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SBHIconManager : NSObject
 - (SBIconModel *)iconModel;
+// YES while the icons are being arranged: the jiggle, the remove buttons and
+// the drags that rearrange them.
+- (BOOL)isEditing;
 @end
 
 @interface SBIconController : NSObject
 + (instancetype)sharedInstance;
 - (SBHIconManager *)iconManager;
+- (BOOL)isEditing;
 @end
 
 @interface SBIconBadgeView : UIView
