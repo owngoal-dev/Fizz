@@ -31,6 +31,44 @@ OBJ_DIR="$WORK_DIR/obj"
 STAGE_DIR="$WORK_DIR/stage"
 mkdir -p "$OBJ_DIR" "$STAGE_DIR"
 
+# On a roothide bootstrap the root directory has a random name that changes on
+# every reboot, so a toolchain or SDK recorded by its absolute path can be
+# reported missing while its files are still on disk under the new name. Find
+# them under the current root instead of asking for a reinstall.
+JBROOT_PREFIX=""
+if command -v jbroot >/dev/null 2>&1; then
+    JBROOT_PREFIX="$(jbroot 2>/dev/null || true)"
+fi
+
+if ! command -v clang >/dev/null 2>&1; then
+    for TOOLCHAIN_BIN in "${JBROOT_PREFIX}"usr/lib/apelin/toolchains/*/usr/bin; do
+        if [ -x "$TOOLCHAIN_BIN/clang" ]; then
+            PATH="$TOOLCHAIN_BIN:$PATH"
+            break
+        fi
+    done
+fi
+if ! command -v clang >/dev/null 2>&1; then
+    echo "no clang on PATH and none found under the bootstrap root"
+    exit 1
+fi
+
+# Same for the sysroot: the glob is sorted by name, so the last usable SDK wins
+# and a newer iPhoneOS SDK is preferred over an older one.
+if [ -z "${SDKROOT:-}" ] || [ ! -d "${SDKROOT}" ]; then
+    SDKROOT=""
+    for CANDIDATE in "${JBROOT_PREFIX}"var/mobile/Documents/wiki.qaq.apelin/SDKs/*/; do
+        if [ -d "$CANDIDATE/System/Library/Frameworks/UIKit.framework" ]; then
+            SDKROOT="$CANDIDATE"
+        fi
+    done
+    if [ -z "$SDKROOT" ]; then
+        echo "no iPhoneOS SDK on this device; import one in Settings"
+        exit 1
+    fi
+    export SDKROOT
+fi
+
 SLICES=""
 for ARCH in $ARCHS; do
     echo "==> compiling $ARCH"
