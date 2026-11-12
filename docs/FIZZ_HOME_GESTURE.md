@@ -16,6 +16,7 @@
 - `FIZZSuppressScrollPan` 在第二指落下、跟手开始时把祖先链上所有处于启用状态的 pan 置为 `NO`，用于取消“第二指落下前已经开始”的页面 pan、下拉搜索 pan 与惯性减速；`FIZZRestoreScrollPan` 在手指松开、pinch `Ended`/`Cancelled`/`Failed` 时把它们逐个恢复，另有 3 秒看门狗防止 pan 被永久禁用。
 - 单指拖动不受影响：手势结束即恢复 pan，普通翻页与下拉搜索仍由原来的 pan 处理。
 - pinch recognizer 在跟手开始时读一次全局开关；关闭开关不会移除 recognizer，下一次手势就能重新生效，不需要 respring。
+- pinch recognizer 设了 `cancelsTouchesInView = YES`：双指外扩一旦被识别，落在图标上的触摸就被取消，不会在某个手指松开（正好停在某个 App 上）时被图标当成 tap 而打开应用。
 
 ## 编辑态
 
@@ -44,11 +45,16 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 `FIZZIconRippleRun` 由松手且指距过阈值时调用，内收手势不改数据也不做动画。
 
 - 锚点是 `SBIconScrollView` 所在 window 的中心；图标按“图标中心减锚点”的向量方向外移，位移量与距离成正比，最远图标移动 26pt。
-- 每个图标用两条 `CAKeyframeAnimation`（`transform.translation.x` / `.y`）走起点 → 偏移 → 反向越过原位 → 0，关键时间点 0 / `0.42 × (1 − 起点占比)` / 该段之后 72% / 1，`EaseInEaseOut`，总时长 0.5s；反向那段是 `FIZZRippleSettleOvershoot`（满程的 6%）的拖尾回弹，图标收回来时先往内多走一点再落回原位，尾段不会突然停住。延迟按距离归一化后最多 0.1s，整体约 0.6s，视觉上从中间向外扩散。`fillMode` 设为 `kCAFillModeBackwards`，延迟期间图标停在起点，不会先弹回原位。
-- 起点取图标此刻在屏幕上的位置（跟手阶段的 layer 平移，或上一波动画走到一半的位置），读完立刻把模型 `transform` 清零，因此动画本身仍然不依赖模型值；`transform` 带缩放或旋转（SpringBoard 自己在动）、隐藏、透明或不在窗口内的图标会被跳过。
+- 松手后不是一个固定的 0.5s 关键帧曲线，而是**按弹簧把整段运动积分出来**再交给 Core Animation，而且只有**回程**一条弹簧（`FIZZRippleReturnStiffness = 420`、`FIZZRippleReturnDamping = 21`）：从松手位置拉回 0，不把没扩到满程的图标再补送出去。松手时带的外扩速度会让它靠惯性多走一点点，但径向位置被 `|offset|` 卡住，永远不会越过满程 26pt。模拟步长 1/240、按 1/60 采样，最多 1.4s，位移小于 0.15pt 且速度小于 2pt/s 时判定睡去并结束。
+- **速度是继承的**：初速度取跟手弹簧在松手瞬间的 `gFollowVelocity`（share/s）乘该图标自己的 offset，即图标真实的速度向量；被封顶到 400pt/s，防止掉帧产生离谱初速度。位置同样取松手瞬间的 presentation 平移量，读完把模型 `transform` 清零，动画与模型值无关。
+- 延迟按距离归一化后最多 0.1s，但会乘 `1 − 已带出比例`（`followShare / 0.9` 夹在 0…1）：手指已经把图标带出去时不再冻结等拍子，两段式的停顿感主要来自这里。
+- `touchdown`（触感时刻）与 `settle`（清空时刻）不再由解析公式算，而是模拟过程中记录：回程投影由正变负的那一刻是该图标的 touchdown，模拟睡去的那一刻是它的 settle，取所有图标里的最大值。若这一波没有图标位移、只弹了角标，settle 用“角标时长 0.25 + 最大延迟 0.1”。
+- `transform` 带缩放或旋转（SpringBoard 自己在动）、隐藏、透明或不在窗口内的图标会被跳过；`fillMode = kCAFillModeBackwards` 在延迟期间保持起点值。
 - 连续多次外扩不会打断上一波：新一波从图标当前位置接着往外再弹一次，同一对动画 key 直接替换旧动画；`FIZZRunSpread` 带世代号，上一波排好的 `FIZZBadgeClearAll()` 发现世代号已过期就直接放弃，清空只由最后一波在自己的涟漪落定后执行。
-- 递归收集时遇到类名含 `IconView` 的视图就停下，只让最外层的图标视图动，避免图标图片视图（`SBIconImageView`）被父子各推一次。
-- 只处理 `SBIconScrollView` 内的页面图标，Dock 等其他部件的图标不参与。
+- **可打断**：跟手开始时会先读每个图标的 presentation 平移量，把上一波还挂着的四条动画（`transform.translation.x/.y`、两条回程弹簧）全部移除，再把该位置写成模型 `transform` 并记进 `gFollowBases`；本阶段的位移是 `base + offset × share`，从 0 开始，所以第二次手势接在第一次的空中位置继续，不会等旧动画放完，也不会跳回原位。平均已带出比例记在 `gFollowCarried`，松手时并入延迟缩短。
+- 松手这一遍只走**一次**树：从 window 出发，同一个递归里同时收“页面图标”（`SBIconView` 且 `isDescendantOfView:` 落在 `SBIconScrollView` 里）和“屏幕上的角标”（`SBIconBadgeView`）。遇到角标就不再往下走；遇到图标视图仍然继续下潜，因为角标挂在图标里的图片视图上。深度上限 12（比只收图标那遍深，必须穿过根文件夹、页面滚动视图、图标列表、图标、图片视图才到角标）。
+- 跟手开始时那一遍仍然只在 `SBIconScrollView` 里收图标，深度上限 8，遇到图标视图就停，只让最外层的图标视图动，避免图标图片视图（`SBIconImageView`）被父子各推一次。
+- 位移只作用于页面图标；Dock 等部件的图标不参与位移，但它们的角标会被松手那一遍收到一起做动画。整段逻辑里没有对 Dock 类名的判断：Dock 图标不动的依据是“不是页面滚动视图的后代”。
 
 ## 触感反馈
 
@@ -67,7 +73,7 @@ pinch recognizer 是 `FIZZSpreadPinchRecognizer`（`UIPinchGestureRecognizer` �
 
 ## 气泡消失
 
-徽章跟着涟漪的节拍一起走：`FIZZBadgePopWithRipple` 拿到和图标相同的延迟（最多 0.1 秒），时长只取图标的一半（`FIZZBadgePopBeatShare = 0.5`，0.25 秒）。每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的图标（延迟 0.1 秒）在 0.35 秒就淡完，比图标归位早，触感那一下落在图标穿过原位的 0.44 秒，数据清空在落定后的 0.62。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
+徽章跟着涟漪的节拍一起走，但它是**按角标视图收集**的，不跟着某个图标走：松手那一遍树里见到的每个可见角标都会弹，包括 Dock 里那些图标本身不位移的角标。`FIZZBadgePopBadge` 拿到的是按同一条规则算出的延迟——`0.1s × (角标中心到 window 中心的距离 / 最远参与图标的距离)`，这和图标延迟 `0.1 × 偏移长度 / 26` 等价，所以页面上的角标与自己的图标完全同步，Dock 的角标按自己的距离插进同一节拍。时长只取图标的一半（`FIZZBadgePopBeatShare = 0.5`，0.25 秒）。每个徽章只做两件事——`transform.scale` 从当前值缓出放大到 1.45 倍，`opacity` 从当前值线性降到 0。没有中途顿点，没有爆裂圆环；最远的角标（延迟 0.1 秒）在 0.35 秒就淡完，比图标归位早，触感那一下落在图标穿过原位的 0.44 秒，数据清空在落定后的 0.62；若这一波没有任何图标位移（例如图标都在 Dock），落定时间改用 0.35 秒，清空仍排在角标淡完之后。被清过又重新弹出时从当时的缩放和不透明度接着做，不会跳回原样。
 
 ## 接入与 hooks
 

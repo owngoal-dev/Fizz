@@ -10,11 +10,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Pops the badges of one icon in step with its ripple beat: the same delay the
-/// icon itself got, over half of its beat, so each badge grows while it fades out
-/// and the last one is long gone as its icon comes to rest. Called by the ripple
-/// for every icon it animates.
-void FIZZBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay);
+/// Pops one badge view: it grows while it fades out over half of the icon beat,
+/// after `delay` seconds. The ripple walks the home screen once and hands every
+/// badge it meets over here, so a badge on an icon that does not move (the Dock)
+/// still leaves on the same beat.
+void FIZZBadgePopBadge(UIView *badgeView, NSTimeInterval duration, NSTimeInterval delay);
 
 /// Clears the badge value of every leaf icon and settles the views popped above.
 /// Must be called on the main queue, once the ripple has finished, so the pop is

@@ -407,7 +407,10 @@ static void FIZZSpreadTrackTouches(UIPinchGestureRecognizer *recognizer, UIEvent
     UIPinchGestureRecognizer *recognizer =
         [[FIZZSpreadPinchRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
     recognizer.delegate = self;
-    recognizer.cancelsTouchesInView = NO;
+    // Once the spread is recognised the touches stop belonging to the icon under
+    // them: without this, a finger lifted while it rests on an app would still
+    // reach that icon as a tap and open it.
+    recognizer.cancelsTouchesInView = YES;
     recognizer.delaysTouchesBegan = NO;
     recognizer.delaysTouchesEnded = NO;
     [scrollView addGestureRecognizer:recognizer];

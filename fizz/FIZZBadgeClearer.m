@@ -24,11 +24,12 @@
 //
 //  View: the badge is an SBIconBadgeView, a subview of the icon's image view
 //  that is configured with -configureForIcon:infoProvider: and recycled with
-//  -prepareForReuse. It leaves the same beat as its icon — same duration, same
-//  per-icon delay — growing while it fades out, and nothing else: the finer
-//  detail of a pop is over before it can be seen. The data is cleared only after
-//  the ripple has settled, because clearing it up front makes SpringBoard drop
-//  the badge view at once and the fade is never seen.
+//  -prepareForReuse. The ripple walks the home screen once when the fingers are
+//  lifted and hands every visible badge over here with the delay its distance
+//  earns, so the Dock's badges — whose icons do not move — leave on the same
+//  beat as the page's. The data is cleared only after the ripple has settled,
+//  because clearing it up front makes SpringBoard drop the badge view at once
+//  and the fade is never seen.
 //
 //  Reuse: an SBIconBadgeView is handed to another icon while scrolling, so the
 //  pop, the hidden flag and a lowered alpha are all reset at the two entry
@@ -350,28 +351,8 @@ static void FIZZBadgePopView(UIView *badge, NSTimeInterval duration, NSTimeInter
     [badge.layer addAnimation:fade forKey:FIZZBadgePopKey];
 }
 
-static NSUInteger FIZZBadgePopTree(UIView *view, Class badgeClass, NSTimeInterval duration,
-                                  NSTimeInterval beginTime) {
-    if (!view) {
-        return 0;
-    }
-    NSUInteger popped = 0;
-    if ([view isKindOfClass:badgeClass] && view.window && !view.hidden) {
-        // Same duration and delay as the icon's own keyframe animation, so the
-        // last bubble is gone as the icon comes to rest.
-        FIZZBadgePopView(view, duration, beginTime);
-        [gPoppingBadgeViews addObject:view];
-        popped++;
-    }
-    for (UIView *child in view.subviews) {
-        popped += FIZZBadgePopTree(child, badgeClass, duration, beginTime);
-    }
-    return popped;
-}
-
-void FIZZBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInterval delay) {
-    Class badgeClass = objc_getClass("SBIconBadgeView");
-    if (!iconView || !badgeClass || duration <= 0) {
+void FIZZBadgePopBadge(UIView *badgeView, NSTimeInterval duration, NSTimeInterval delay) {
+    if (!badgeView || duration <= 0) {
         return;
     }
     if (!gPoppingBadgeViews) {
@@ -379,8 +360,8 @@ void FIZZBadgePopWithRipple(UIView *iconView, NSTimeInterval duration, NSTimeInt
     }
     // Half the icon's beat, so the bubble is seen disappearing instead of
     // lingering for the whole return leg.
-    FIZZBadgePopTree(iconView, badgeClass, duration * FIZZBadgePopBeatShare,
-                    CACurrentMediaTime() + delay);
+    FIZZBadgePopView(badgeView, duration * FIZZBadgePopBeatShare, CACurrentMediaTime() + delay);
+    [gPoppingBadgeViews addObject:badgeView];
 }
 
 // Runs once the ripple is over: a badge whose icon is still badged would pop back
