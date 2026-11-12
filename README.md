@@ -1,5 +1,9 @@
 # Fizz
 
+[now-on-havoc]: https://havoc.app/package/fizz
+
+[<img width="150" src="https://docs.havoc.app/img/badges/get_square.svg" />][now-on-havoc]
+
 **Spread two fingers. Watch the badges go.**
 
 Your home screen has been nagging you all day. Instead of opening every app just to clear a red dot, put two fingers on the screen and spread them — your icons ripple outward, the badges swell and fade, and half a second later the screen is quiet again.
