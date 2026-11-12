@@ -7,7 +7,7 @@ set -eu
 
 PACKAGE_ID="com.fizz.ripple"
 PACKAGE_NAME="Fizz"
-PACKAGE_VERSION="0.1.1"
+PACKAGE_VERSION="0.1.2"
 PACKAGE_AUTHOR="Lessica <82flex@gmail.com>"
 TWEAK_NAME="Fizz"
 PREFS_NAME="FizzPrefs"

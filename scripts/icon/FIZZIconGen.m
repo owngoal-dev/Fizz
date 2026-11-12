@@ -114,10 +114,12 @@ static void FIZZDrawLinearGradient(CGContextRef context, CGPoint from, CGPoint t
 #pragma mark - Artwork
 
 // The mark is one badge and the wave it pushes out: a small solid dot in the
-// middle, three rings around it, each thinner and fainter than the last, and
-// each opening a wider gap towards the upper right where three bubbles have
-// already left. The tile is dark ink with two very quiet auras, so the white
-// mark carries the whole icon without anything else competing with it.
+// middle, two rings around it, the outer one thinner and fainter, both opening
+// the same gap towards the upper right on one ray, with a bubble seated in it.
+// Two rings only: at 29 pt a third one turned the tile into a target with rings
+// inside rings, and the two that remain still read as one mark spreading out.
+// The tile stays dark ink with two very quiet auras, so the pale mark carries the
+// icon on its own.
 static void FIZZDrawArtwork(CGContextRef context, CGFloat side)
 {
     // Ink: a touch of blue at the top left, almost black at the bottom right.
@@ -141,47 +143,46 @@ static void FIZZDrawArtwork(CGContextRef context, CGFloat side)
     CGPoint center = CGPointMake(side * 0.5, side * 0.5);
     CGColorRef white = FIZZColor(1, 1, 1, 1);
 
-    // Rings. The gap faces the upper right; it widens with every ring, so the
-    // three read as one motion outwards rather than three separate circles.
-    static const CGFloat ringRadius[3] = { 0.150, 0.232, 0.315 };
-    static const CGFloat ringWidth[3] = { 0.033, 0.023, 0.015 };
-    static const CGFloat ringAlpha[3] = { 0.94, 0.58, 0.34 };
-    static const CGFloat ringGap[3] = { 40.0, 58.0, 78.0 };
-    // The outer rings lean towards the teal of the aura, so the mark has a
-    // colour of its own instead of being plain white lines on ink.
-    static const CGFloat ringTint[3][3] = {
+    // Rings. The gap faces the upper right, and both rings open the same visual
+    // gap so the two openings sit on one ray through the center; each arc is
+    // drawn wider by its own round caps, which are what eat back into the gap.
+    static const CGFloat ringRadius[2] = { 0.192, 0.330 };
+    static const CGFloat ringWidth[2] = { 0.056, 0.040 };
+    static const CGFloat ringAlpha[2] = { 0.84, 0.48 };
+    static const CGFloat gapVisual = 44.0;
+    // The outer ring leans towards the teal of the aura, so the mark has a colour
+    // of its own instead of being plain white lines on ink.
+    static const CGFloat ringTint[2][3] = {
         { 1.000, 1.000, 1.000 },
-        { 0.812, 0.976, 0.953 },
-        { 0.639, 0.925, 0.878 },
+        { 0.760, 0.941, 0.914 },
     };
     static const CGFloat gapAngle = 50.0;
-    for (NSUInteger index = 0; index < 3; index++) {
-        CGFloat start = (CGFloat)((gapAngle + ringGap[index] / 2.0) * M_PI / 180.0);
-        CGFloat end = (CGFloat)((gapAngle - ringGap[index] / 2.0) * M_PI / 180.0);
+    for (NSUInteger index = 0; index < 2; index++) {
+        CGFloat radius = side * ringRadius[index];
+        CGFloat capHalfWidth = side * ringWidth[index] / 2.0;
+        CGFloat capDegrees = 2.0 * asin(capHalfWidth / radius) * 180.0 / M_PI;
+        CGFloat gap = gapVisual + capDegrees;
+        CGFloat start = (CGFloat)((gapAngle + gap / 2.0) * M_PI / 180.0);
+        CGFloat end = (CGFloat)((gapAngle - gap / 2.0) * M_PI / 180.0);
         CGColorRef ring = FIZZColor(ringTint[index][0], ringTint[index][1], ringTint[index][2],
                                     ringAlpha[index]);
-        FIZZStrokeArc(context, center, side * ringRadius[index], side * ringWidth[index],
-                      ring, start, end);
+        FIZZStrokeArc(context, center, radius, side * ringWidth[index], ring, start, end);
         CGColorRelease(ring);
     }
 
-    // The badge itself, small and solid, and the bubbles that got away: they sit
-    // on the axis of the gaps, shrinking as they travel.
-    CGColorRef badge = FIZZColorWithAlpha(white, 0.97);
-    FIZZFillCircle(context, center, side * 0.055, badge);
+    // The badge itself, solid, and the one bubble seated in the mouth of the
+    // outer ring's gap, on the ring's own radius, so the mark reads as one piece
+    // instead of a ring with a dot drifting off in the corner.
+    CGColorRef badge = FIZZColorWithAlpha(white, 0.90);
+    FIZZFillCircle(context, center, side * 0.082, badge);
     CGColorRelease(badge);
 
-    static const CGFloat bubbleRadius[3] = { 0.191, 0.273, 0.355 };
-    static const CGFloat bubbleSize[3] = { 0.0145, 0.0100, 0.0065 };
-    static const CGFloat bubbleAlpha[3] = { 0.72, 0.44, 0.24 };
     CGFloat angle = (CGFloat)(gapAngle * M_PI / 180.0);
-    for (NSUInteger index = 0; index < 3; index++) {
-        CGPoint point = CGPointMake(center.x + cos(angle) * side * bubbleRadius[index],
-                                    center.y + sin(angle) * side * bubbleRadius[index]);
-        CGColorRef bubble = FIZZColorWithAlpha(white, bubbleAlpha[index]);
-        FIZZFillCircle(context, point, side * bubbleSize[index], bubble);
-        CGColorRelease(bubble);
-    }
+    CGPoint bubble = CGPointMake(center.x + cos(angle) * side * 0.334,
+                                 center.y + sin(angle) * side * 0.334);
+    CGColorRef bubbleColor = FIZZColor(0.840, 0.960, 0.945, 0.68);
+    FIZZFillCircle(context, bubble, side * 0.050, bubbleColor);
+    CGColorRelease(bubbleColor);
 
     CGColorRelease(white);
     CGColorRelease(sheenBottom);
@@ -294,17 +295,17 @@ int main(void)
             CGImageRelease(icon);
         }
 
-        // The badge must be at the middle of the icon, the innermost ring must be
-        // crossed above it, the upper right must hold a bubble, and the outermost
-        // corner must be fully transparent.
+        // The badge must be at the middle of the icon, both rings must be crossed
+        // above it, the upper right must hold a bubble, and the outermost corner
+        // must be fully transparent.
         CGContextRef probe = FIZZCreateContext(87.0);
         CGImageRef probeIcon = FIZZCreateRoundedIcon(master, 87.0);
         CGContextDrawImage(probe, CGRectMake(0, 0, 87, 87), probeIcon);
         CGImageRelease(probeIcon);
         FIZZSamplePixel(probe, 87.0, 0.50, 0.50, "badge");
-        FIZZSamplePixel(probe, 87.0, 0.50, 0.65, "ring-1");
-        FIZZSamplePixel(probe, 87.0, 0.50, 0.78, "gap");
-        FIZZSamplePixel(probe, 87.0, 0.66, 0.70, "bubble");
+        FIZZSamplePixel(probe, 87.0, 0.50, 0.672, "ring-inner");
+        FIZZSamplePixel(probe, 87.0, 0.50, 0.830, "ring-outer");
+        FIZZSamplePixel(probe, 87.0, 0.715, 0.244, "bubble-gap");
         FIZZSamplePixel(probe, 87.0, 0.01, 0.01, "corner");
         CGContextRelease(probe);
 
